@@ -21,11 +21,23 @@ wire        ms_ready_go;
 
 reg [`ES_TO_MS_BUS_WD -1:0] es_to_ms_bus_r;
 wire        ms_res_from_mem;
+wire [ 1:0] ms_mem_addr_low;
+wire        ms_lb_op;
+wire        ms_lbu_op;
+wire        ms_lh_op;
+wire        ms_lhu_op;
 wire        ms_gr_we;
 wire [ 4:0] ms_dest;
 wire [31:0] ms_alu_result;
 wire [31:0] ms_pc;
-assign {ms_res_from_mem,  //70:70
+assign {ms_res_from_mem,  //78:78
+        ms_mem_addr_low,  //77:76
+        ms_lb_op       ,  //75:75
+        ms_lbu_op      ,  //74:74
+        ms_lh_op       ,  //73:73
+        ms_lhu_op      ,  //72:72
+        ms_lwl_op      ,  //71:71
+        ms_lwr_op      ,  //70:70
         ms_gr_we       ,  //69:69
         ms_dest        ,  //68:64
         ms_alu_result  ,  //63:32
@@ -57,7 +69,38 @@ always @(posedge clk) begin
     end
 end
 
-assign mem_result = data_sram_rdata;
+assign mem_result = ms_lb_op  ? (ms_mem_addr_low == 2'b00) ? {{24{data_sram_rdata[7]}}, data_sram_rdata[7:0]} : 
+                                (ms_mem_addr_low == 2'b01) ? {{24{data_sram_rdata[15]}}, data_sram_rdata[15:8]} : 
+                                (ms_mem_addr_low == 2'b10) ? {{24{data_sram_rdata[23]}}, data_sram_rdata[23:16]} : 
+                                                             {{24{data_sram_rdata[31]}}, data_sram_rdata[31:24]} : 
+                    ms_lbu_op ? (ms_mem_addr_low == 2'b00) ? data_sram_rdata[7:0] : 
+                                (ms_mem_addr_low == 2'b01) ? data_sram_rdata[15:8] : 
+                                (ms_mem_addr_low == 2'b10) ? data_sram_rdata[23:16] : 
+                                                             data_sram_rdata[7:0] : 
+                    ms_lh_op  ? (ms_mem_addr_low == 2'b00) ? {{16{data_sram_rdata[15]}}, data_sram_rdata[15:0]} : 
+                                                             {{16{data_sram_rdata[31]}}, data_sram_rdata[31:16]} : 
+                    ms_lhu_op ? (ms_mem_addr_low == 2'b10) ? data_sram_rdata[15:0] : 
+                                                             data_sram_rdata[31:16] : 
+                    ms_lwl_op ? (ms_mem_addr_low == 2'b00) ? {data_sram_rdata[7:0], 24'b0} : 
+                                (ms_mem_addr_low == 2'b01) ? {data_sram_rdata[15:0], 16'b0} : 
+                                (ms_mem_addr_low == 2'b10) ? {data_sram_rdata[23:0], 8'b0} : 
+                                                             data_sram_rdata : 
+                    ms_lwr_op ? (ms_mem_addr_low == 2'b11) ? data_sram_rdata[31:24] : 
+                                (ms_mem_addr_low == 2'b01) ? data_sram_rdata[31:16] : 
+                                (ms_mem_addr_low == 2'b10) ? data_sram_rdata[31:8] : 
+                                                             data_sram_rdata : 
+                                                             data_sram_rdata;
+
+assign ms_rf_we = ms_lwl_op ? (ms_mem_addr_low == 2'b00) ? 4'b1000 : 
+                              (ms_mem_addr_low == 2'b01) ? 4'b1100 : 
+                              (ms_mem_addr_low == 2'b10) ? 4'b1110 : 
+                                                           4'b1111 : 
+                  ms_lwr_op ? (ms_mem_addr_low == 2'b11) ? 4'b0001 : 
+                              (ms_mem_addr_low == 2'b10) ? 4'b0011 : 
+                              (ms_mem_addr_low == 2'b01) ? 4'b0111 : 
+                                                           4'b1111 : 
+                  ms_gr_we ? 4'b1111 : 
+                             4'b0000 ;
 
 assign ms_final_result = ms_res_from_mem ? mem_result
                                          : ms_alu_result;

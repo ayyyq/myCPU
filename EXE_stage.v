@@ -25,6 +25,10 @@ wire        es_ready_go   ;
 reg  [`DS_TO_ES_BUS_WD -1:0] ds_to_es_bus_r;
 wire [11:0] es_alu_op     ;
 wire        es_load_op    ;
+wire        es_lb_op      ;
+wire        es_lbu_op     ;
+wire        es_lh_op      ;
+wire        es_lhu_op     ;
 wire        es_mul_op     ;
 wire        es_mulu_op    ;
 wire        es_div_op     ;
@@ -45,8 +49,18 @@ wire [15:0] es_imm        ;
 wire [31:0] es_rs_value   ;
 wire [31:0] es_rt_value   ;
 wire [31:0] es_pc         ;
-assign {es_alu_op      ,  //144:133
-        es_load_op     ,  //132:132
+assign {es_alu_op      ,  //154:143
+        es_load_op     ,  //142:142
+        es_lb_op       ,  //141:141
+        es_lbu_op      ,  //140:140
+        es_lh_op       ,  //139:139
+        es_lhu_op      ,  //138:138
+        es_lwl_op      ,  //137:137
+        es_lwr_op      ,  //136:136
+        es_sb_op       ,  //135:135
+        es_sh_op       ,  //134:134
+        es_swl_op      ,  //133:133
+        es_swr_op      ,  //132:132
         es_mul_op      ,  //131:131
         es_mulu_op     ,  //130:130
         es_div_op      ,  //129:129
@@ -96,9 +110,17 @@ wire [31:0] hi_rdata;
 wire [31:0] lo_rdata;
 
 wire        es_res_from_mem;
+wire [ 1:0] es_mem_addr_low;
 
 assign es_res_from_mem = es_load_op;
-assign es_to_ms_bus = {es_res_from_mem,  //70:70
+assign es_to_ms_bus = {es_res_from_mem,  //78:78
+                       es_mem_addr_low,  //77:76
+                       es_lb_op       ,  //75:75
+                       es_lbu_op      ,  //74:74
+                       es_lh_op       ,  //73:73
+                       es_lhu_op      ,  //72:72
+                       es_lwl_op      ,  //71:71
+                       es_lwr_op      ,  //70:70
                        es_gr_we       ,  //69:69
                        es_dest        ,  //68:64
                        es_alu_result  ,  //63:32
@@ -210,9 +232,12 @@ assign es_alu_result = es_hi_re ? hi_rdata :
                        es_lo_re ? lo_rdata : 
                                   aluout;
 
+assign es_mem_addr_low = es_alu_result[1:0];
+
 assign data_sram_en    = 1'b1;
 assign data_sram_wen   = es_mem_we&&es_valid ? 4'hf : 4'h0;
 assign data_sram_addr  = es_alu_result;
 assign data_sram_wdata = es_rt_value;
+assign data_sram_addr  = {es_alu_result[31:2], 2'b00};
 
 endmodule

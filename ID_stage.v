@@ -50,6 +50,10 @@ wire [31:0] br_target;
 
 wire [11:0] alu_op;
 wire        load_op;
+wire        lb_op;
+wire        lbu_op;
+wire        lh_op;
+wire        lhu_op;
 wire        mul_op;
 wire        mulu_op;
 wire        div_op;
@@ -117,6 +121,10 @@ wire        inst_srav;
 wire        inst_addi;
 wire        inst_addiu;
 wire        inst_lui;
+wire        inst_lb;
+wire        inst_lbu;
+wire        inst_lh;
+wire        inst_lhu;
 wire        inst_lw;
 wire        inst_sw;
 wire        inst_beq;
@@ -146,8 +154,18 @@ wire        rs_lt_zero;
 
 assign br_bus       = {br_taken,br_target};
 
-assign ds_to_es_bus = {alu_op      ,  //144:133
-                       load_op     ,  //132:132
+assign ds_to_es_bus = {alu_op      ,  //154:143
+                       load_op     ,  //142:142
+                       lb_op       ,  //141:141
+                       lbu_op      ,  //140:140
+                       lh_op       ,  //139:139
+                       lhu_op      ,  //138:138
+                       lwl_op      ,  //137:137
+                       lwr_op      ,  //136:136
+                       sb_op       ,  //135:135
+                       sh_op       ,  //134:134
+                       swl_op      ,  //133:133
+                       swr_op      ,  //132:132
                        mul_op      ,  //131:131
                        mulu_op     ,  //130:130
                        div_op      ,  //129:129
@@ -256,8 +274,18 @@ assign inst_andi   = op_d[6'h0c];
 assign inst_ori    = op_d[6'h0d];
 assign inst_xori   = op_d[6'h0e];
 assign inst_lui    = op_d[6'h0f] & rs_d[5'h00];
+assign inst_lb     = op_d[6'h20];
+assign inst_lh     = op_d[6'h21];
+assign inst_lwl    = op_d[6'h22];
 assign inst_lw     = op_d[6'h23];
+assign inst_lbu    = op_d[6'h24];
+assign inst_lhu    = op_d[6'h25];
+assign inst_lwr    = op_d[6'h26];
+assign inst_sb     = op_d[6'h28];
+assign inst_sh     = op_d[6'h29];
+assign inst_swl    = op_d[6'h2a];
 assign inst_sw     = op_d[6'h2b];
+assign inst_swr    = op_d[6'h2e];
 assign inst_beq    = op_d[6'h04];
 assign inst_bne    = op_d[6'h05];
 assign inst_blez   = op_d[6'h06] & rt_d[5'h00];
@@ -284,6 +312,10 @@ assign alu_op[ 9] = inst_srl | inst_srlv;
 assign alu_op[10] = inst_sra | inst_srav;
 assign alu_op[11] = inst_lui;
 assign load_op = inst_lw; //bug 1
+assign lb_op   = inst_lb;
+assign lbu_op  = inst_lbu;
+assign lh_op   = inst_lh;
+assign lhu_op  = inst_lhu;
 assign mul_op  = inst_mult;
 assign mulu_op = inst_multu;
 assign div_op  = inst_div;
