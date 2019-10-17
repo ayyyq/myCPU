@@ -89,8 +89,8 @@ assign mem_result = ms_lb_op  ? (ms_mem_addr_low == 2'b00) ? {{24{data_sram_rdat
                                 (ms_mem_addr_low == 2'b10) ? {data_sram_rdata[23:0], 8'b0} : 
                                                              data_sram_rdata : 
                     ms_lwr_op ? (ms_mem_addr_low == 2'b11) ? data_sram_rdata[31:24] : 
-                                (ms_mem_addr_low == 2'b01) ? data_sram_rdata[31:16] : 
-                                (ms_mem_addr_low == 2'b10) ? data_sram_rdata[31:8] : 
+                                (ms_mem_addr_low == 2'b10) ? data_sram_rdata[31:16] : 
+                                (ms_mem_addr_low == 2'b01) ? data_sram_rdata[31:8] : 
                                                              data_sram_rdata : 
                                                              data_sram_rdata;
 
