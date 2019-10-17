@@ -211,10 +211,10 @@ assign es_dest = es_to_ms_bus[68:64];
 assign es_alu_result = es_to_ms_bus[63:32];
 
 //mem_stage
-wire ms_gr_we;
-wire [4:0] ms_dest;
+wire [ 3:0] ms_rf_we;
+wire [ 4:0] ms_dest;
 wire [31:0] ms_final_result;
-assign ms_gr_we = ms_to_ws_bus[69];
+assign ms_rf_we = ms_to_ws_bus[72:69];
 assign ms_dest = ms_to_ws_bus[68:64];
 assign ms_final_result = ms_to_ws_bus[63:32];
 
@@ -370,16 +370,39 @@ regfile u_regfile(
     .wdata  (rf_wdata )
     );
 
-//assign rs_value = rf_rdata1;
-assign rs_value = (es_valid && es_gr_we && es_dest == rs)? es_alu_result:
-                  (ms_valid && ms_gr_we && ms_dest == rs)? ms_final_result:
-                  (ws_valid && rf_we && rf_waddr == rs)? rf_wdata:
-                  rf_rdata1;
-//assign rt_value = rf_rdata2;
-assign rt_value = (es_valid && es_gr_we && es_dest == rt)? es_alu_result:
-                  (ms_valid && ms_gr_we && ms_dest == rt)? ms_final_result:
-                  (ws_valid && rf_we && rf_waddr == rt)? rf_wdata:
-                  rf_rdata2;
+assign rs_value[ 7: 0] = (es_valid && es_gr_we    && es_dest == rs) ? es_alu_result[7:0] : 
+                         (ms_valid && ms_rf_we[0] && es_dest == rs) ? ms_final_result[7:0] : 
+                         (ws_valid && rf_we[0]    && es_dest == rs) ? rf_wdata[7:0] : 
+                         rf_rdata1[7:0];
+assign rs_value[15: 8] = (es_valid && es_gr_we    && es_dest == rs) ? es_alu_result[15:8] : 
+                         (ms_valid && ms_rf_we[1] && es_dest == rs) ? ms_final_result[15:8] : 
+                         (ws_valid && rf_we[1]    && es_dest == rs) ? rf_wdata[15:8] : 
+                         rf_rdata1[15:8];
+assign rs_value[23:16] = (es_valid && es_gr_we    && es_dest == rs) ? es_alu_result[23:16] : 
+                         (ms_valid && ms_rf_we[2] && es_dest == rs) ? ms_final_result[23:16] : 
+                         (ws_valid && rf_we[2]    && es_dest == rs) ? rf_wdata[23:16] : 
+                         rf_rdata1[23:16];
+assign rs_value[31:24] = (es_valid && es_gr_we    && es_dest == rs) ? es_alu_result[31:24] : 
+                         (ms_valid && ms_rf_we[3] && es_dest == rs) ? ms_final_result[31:24] : 
+                         (ws_valid && rf_we[3]    && es_dest == rs) ? rf_wdata[31:24] : 
+                         rf_rdata1[31:24];
+
+assign rt_value[ 7: 0] = (es_valid && es_gr_we    && es_dest == rt) ? es_alu_result[7:0] : 
+                         (ms_valid && ms_rf_we[0] && es_dest == rt) ? ms_final_result[7:0] : 
+                         (ws_valid && rf_we[0]    && es_dest == rt) ? rf_wdata[7:0] : 
+                         rf_rdata2[7:0];
+assign rt_value[15: 8] = (es_valid && es_gr_we    && es_dest == rt) ? es_alu_result[15:8] : 
+                         (ms_valid && ms_rf_we[1] && es_dest == rt) ? ms_final_result[15:8] : 
+                         (ws_valid && rf_we[1]    && es_dest == rt) ? rf_wdata[15:8] : 
+                         rf_rdata2[15:8];
+assign rt_value[23:16] = (es_valid && es_gr_we    && es_dest == rt) ? es_alu_result[23:16] : 
+                         (ms_valid && ms_rf_we[2] && es_dest == rt) ? ms_final_result[23:16] : 
+                         (ws_valid && rf_we[2]    && es_dest == rt) ? rf_wdata[23:16] : 
+                         rf_rdata2[23:16];
+assign rt_value[31:24] = (es_valid && es_gr_we    && es_dest == rt) ? es_alu_result[31:24] : 
+                         (ms_valid && ms_rf_we[3] && es_dest == rt) ? ms_final_result[31:24] : 
+                         (ws_valid && rf_we[3]    && es_dest == rt) ? rf_wdata[31:24] : 
+                         rf_rdata2[31:24];
 
 assign rs_eq_rt = (rs_value == rt_value);
 assign rs_eq_zero = (rs_value == 32'b0);
