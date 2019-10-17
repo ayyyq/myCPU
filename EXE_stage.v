@@ -29,6 +29,12 @@ wire        es_lb_op      ;
 wire        es_lbu_op     ;
 wire        es_lh_op      ;
 wire        es_lhu_op     ;
+wire        es_lwl_op     ;
+wire        es_lwr_op     ;
+wire        es_sb_op      ;
+wire        es_sh_op      ;
+wire        es_swl_op     ;
+wire        es_swr_op     ;
 wire        es_mul_op     ;
 wire        es_mulu_op    ;
 wire        es_div_op     ;
@@ -235,9 +241,33 @@ assign es_alu_result = es_hi_re ? hi_rdata :
 assign es_mem_addr_low = es_alu_result[1:0];
 
 assign data_sram_en    = 1'b1;
-assign data_sram_wen   = es_mem_we&&es_valid ? 4'hf : 4'h0;
-assign data_sram_addr  = es_alu_result;
-assign data_sram_wdata = es_rt_value;
+assign data_sram_wen   = es_mem_we && es_valid ? es_sb_op  ? (es_mem_addr_low == 2'b00) ? 4'b0001 : 
+                                                             (es_mem_addr_low == 2'b01) ? 4'b0010 : 
+                                                             (es_mem_addr_low == 2'b10) ? 4'b0100 : 
+                                                                                          4'b1000 : 
+                                                 es_sh_op  ? (es_mem_addr_low == 2'b00) ? 4'b0011 : 
+                                                                                          4'b1100 : 
+                                                 es_swl_op ? (es_mem_addr_low == 2'b00) ? 4'b0001 : 
+                                                             (es_mem_addr_low == 2'b01) ? 4'b0011 : 
+                                                             (es_mem_addr_low == 2'b10) ? 4'b0111 : 
+                                                                                          4'b1111 : 
+                                                 es_swr_op ? (es_mem_addr_low == 2'b11) ? 4'b1000 : 
+                                                             (es_mem_addr_low == 2'b10) ? 4'b1100 : 
+                                                             (es_mem_addr_low == 2'b01) ? 4'b1110 : 
+                                                                                          4'b1111 : 
+                                                                                          4'b1111 : 
+                                                                                          4'b0000 ;
 assign data_sram_addr  = {es_alu_result[31:2], 2'b00};
+assign data_sram_wdata = es_sb_op  ? {4{es_rt_value[7:0]}} : 
+                         es_sh_op  ? {2{es_rt_value[15:0]}} : 
+                         es_swl_op ? (es_mem_addr_low == 2'b00) ? es_rt_value[31:24] : 
+                                     (es_mem_addr_low == 2'b01) ? es_rt_value[31:16] : 
+                                     (es_mem_addr_low == 2'b10) ? es_rt_value[31:8] : 
+                                                                  es_rt_value : 
+                         es_swr_op ? (es_mem_addr_low == 2'b11) ? {es_rt_value[7:0], 24'b0} : 
+                                     (es_mem_addr_low == 2'b10) ? {es_rt_value[15:0], 16'b0} : 
+                                     (es_mem_addr_low == 2'b01) ? {es_rt_value[23:0], 8'b0} : 
+                                                                  es_rt_value : 
+                                     es_rt_value;
 
 endmodule
