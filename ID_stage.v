@@ -37,10 +37,10 @@ wire [31:0] ds_pc  ;
 assign {ds_inst,
         ds_pc  } = fs_to_ds_bus_r;
 
-wire        rf_we   ;
+wire [ 3:0] rf_we   ;
 wire [ 4:0] rf_waddr;
 wire [31:0] rf_wdata;
-assign {rf_we   ,  //37:37
+assign {rf_we   ,  //40:37
         rf_waddr,  //36:32
         rf_wdata   //31:0
        } = ws_to_rf_bus;

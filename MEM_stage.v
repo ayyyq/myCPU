@@ -26,6 +26,8 @@ wire        ms_lb_op;
 wire        ms_lbu_op;
 wire        ms_lh_op;
 wire        ms_lhu_op;
+wire        ms_lwl_op;
+wire        ms_lwr_op;
 wire        ms_gr_we;
 wire [ 4:0] ms_dest;
 wire [31:0] ms_alu_result;
@@ -44,10 +46,11 @@ assign {ms_res_from_mem,  //78:78
         ms_pc             //31:0
        } = es_to_ms_bus_r;
 
+wire [ 3:0] ms_rf_we;
 wire [31:0] mem_result;
 wire [31:0] ms_final_result;
 
-assign ms_to_ws_bus = {ms_gr_we       ,  //69:69
+assign ms_to_ws_bus = {ms_rf_we       ,  //72:69
                        ms_dest        ,  //68:64
                        ms_final_result,  //63:32
                        ms_pc             //31:0
