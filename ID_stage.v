@@ -371,37 +371,37 @@ regfile u_regfile(
     );
 
 assign rs_value[ 7: 0] = (es_valid && es_gr_we    && es_dest == rs) ? es_alu_result[7:0] : 
-                         (ms_valid && ms_rf_we[0] && es_dest == rs) ? ms_final_result[7:0] : 
-                         (ws_valid && rf_we[0]    && es_dest == rs) ? rf_wdata[7:0] : 
+                         (ms_valid && ms_rf_we[0] && ms_dest == rs) ? ms_final_result[7:0] : 
+                         (ws_valid && rf_we[0]    && rf_waddr == rs) ? rf_wdata[7:0] : 
                          rf_rdata1[7:0];
 assign rs_value[15: 8] = (es_valid && es_gr_we    && es_dest == rs) ? es_alu_result[15:8] : 
-                         (ms_valid && ms_rf_we[1] && es_dest == rs) ? ms_final_result[15:8] : 
-                         (ws_valid && rf_we[1]    && es_dest == rs) ? rf_wdata[15:8] : 
+                         (ms_valid && ms_rf_we[1] && ms_dest == rs) ? ms_final_result[15:8] : 
+                         (ws_valid && rf_we[1]    && rf_waddr == rs) ? rf_wdata[15:8] : 
                          rf_rdata1[15:8];
 assign rs_value[23:16] = (es_valid && es_gr_we    && es_dest == rs) ? es_alu_result[23:16] : 
-                         (ms_valid && ms_rf_we[2] && es_dest == rs) ? ms_final_result[23:16] : 
-                         (ws_valid && rf_we[2]    && es_dest == rs) ? rf_wdata[23:16] : 
+                         (ms_valid && ms_rf_we[2] && ms_dest == rs) ? ms_final_result[23:16] : 
+                         (ws_valid && rf_we[2]    && rf_waddr == rs) ? rf_wdata[23:16] : 
                          rf_rdata1[23:16];
 assign rs_value[31:24] = (es_valid && es_gr_we    && es_dest == rs) ? es_alu_result[31:24] : 
-                         (ms_valid && ms_rf_we[3] && es_dest == rs) ? ms_final_result[31:24] : 
-                         (ws_valid && rf_we[3]    && es_dest == rs) ? rf_wdata[31:24] : 
+                         (ms_valid && ms_rf_we[3] && ms_dest == rs) ? ms_final_result[31:24] : 
+                         (ws_valid && rf_we[3]    && rf_waddr == rs) ? rf_wdata[31:24] : 
                          rf_rdata1[31:24];
 
 assign rt_value[ 7: 0] = (es_valid && es_gr_we    && es_dest == rt) ? es_alu_result[7:0] : 
-                         (ms_valid && ms_rf_we[0] && es_dest == rt) ? ms_final_result[7:0] : 
-                         (ws_valid && rf_we[0]    && es_dest == rt) ? rf_wdata[7:0] : 
+                         (ms_valid && ms_rf_we[0] && ms_dest == rt) ? ms_final_result[7:0] : 
+                         (ws_valid && rf_we[0]    && rf_waddr == rt) ? rf_wdata[7:0] : 
                          rf_rdata2[7:0];
 assign rt_value[15: 8] = (es_valid && es_gr_we    && es_dest == rt) ? es_alu_result[15:8] : 
-                         (ms_valid && ms_rf_we[1] && es_dest == rt) ? ms_final_result[15:8] : 
-                         (ws_valid && rf_we[1]    && es_dest == rt) ? rf_wdata[15:8] : 
+                         (ms_valid && ms_rf_we[1] && ms_dest == rt) ? ms_final_result[15:8] : 
+                         (ws_valid && rf_we[1]    && rf_waddr == rt) ? rf_wdata[15:8] : 
                          rf_rdata2[15:8];
 assign rt_value[23:16] = (es_valid && es_gr_we    && es_dest == rt) ? es_alu_result[23:16] : 
-                         (ms_valid && ms_rf_we[2] && es_dest == rt) ? ms_final_result[23:16] : 
-                         (ws_valid && rf_we[2]    && es_dest == rt) ? rf_wdata[23:16] : 
+                         (ms_valid && ms_rf_we[2] && ms_dest == rt) ? ms_final_result[23:16] : 
+                         (ws_valid && rf_we[2]    && rf_waddr == rt) ? rf_wdata[23:16] : 
                          rf_rdata2[23:16];
 assign rt_value[31:24] = (es_valid && es_gr_we    && es_dest == rt) ? es_alu_result[31:24] : 
-                         (ms_valid && ms_rf_we[3] && es_dest == rt) ? ms_final_result[31:24] : 
-                         (ws_valid && rf_we[3]    && es_dest == rt) ? rf_wdata[31:24] : 
+                         (ms_valid && ms_rf_we[3] && ms_dest == rt) ? ms_final_result[31:24] : 
+                         (ws_valid && rf_we[3]    && rf_waddr == rt) ? rf_wdata[31:24] : 
                          rf_rdata2[31:24];
 
 assign rs_eq_rt = (rs_value == rt_value);
