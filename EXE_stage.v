@@ -17,22 +17,33 @@ module exe_stage(
     output [ 3:0] data_sram_wen  ,
     output [31:0] data_sram_addr ,
     output [31:0] data_sram_wdata,
-    output reg es_valid
+    output reg es_valid,
+    input ms_ex,
+    input handle_ex
 );
 
 wire        es_ready_go   ;
 
 reg  [`DS_TO_ES_BUS_WD -1:0] ds_to_es_bus_r;
+wire        ds_ex         ;
+wire [ 4:0] ds_exccode    ;
+wire        es_bd         ;
+wire [31:0] ds_badvaddr   ;
+wire        es_eret_op    ;
+wire        es_mfc0_op    ;
+wire        es_mtc0_op    ;
+wire [ 7:0] es_cp0_addr   ;
 wire [11:0] es_alu_op     ;
-wire        es_load_op    ;
 wire        es_lb_op      ;
 wire        es_lbu_op     ;
 wire        es_lh_op      ;
 wire        es_lhu_op     ;
+wire        es_lw_op      ;
 wire        es_lwl_op     ;
 wire        es_lwr_op     ;
 wire        es_sb_op      ;
 wire        es_sh_op      ;
+wire        es_sw_op      ;
 wire        es_swl_op     ;
 wire        es_swr_op     ;
 wire        es_mul_op     ;
@@ -55,16 +66,25 @@ wire [15:0] es_imm        ;
 wire [31:0] es_rs_value   ;
 wire [31:0] es_rt_value   ;
 wire [31:0] es_pc         ;
-assign {es_alu_op      ,  //154:143
-        es_load_op     ,  //142:142
-        es_lb_op       ,  //141:141
-        es_lbu_op      ,  //140:140
-        es_lh_op       ,  //139:139
-        es_lhu_op      ,  //138:138
-        es_lwl_op      ,  //137:137
-        es_lwr_op      ,  //136:136
-        es_sb_op       ,  //135:135
-        es_sh_op       ,  //134:134
+assign {ds_ex          ,  //205:205
+        ds_exccode     ,  //204:200
+        es_bd          ,  //199:199
+        ds_badvaddr    ,  //198:167
+        es_eret_op     ,  //166:166
+        es_mfc0_op     ,  //165:165
+        es_mtc0_op     ,  //164:164
+        es_cp0_addr    ,  //163:156
+        es_alu_op      ,  //155:144
+        es_lb_op       ,  //143:143
+        es_lbu_op      ,  //142:142
+        es_lh_op       ,  //141:141
+        es_lhu_op      ,  //140:140
+        es_lw_op       ,  //139:139
+        es_lwl_op      ,  //138:138
+        es_lwr_op      ,  //137:137
+        es_sb_op       ,  //136:136
+        es_sh_op       ,  //135:135
+        es_sw_op       ,  //134:134
         es_swl_op      ,  //133:133
         es_swr_op      ,  //132:132
         es_mul_op      ,  //131:131
@@ -115,11 +135,26 @@ reg  [31:0] lo;
 wire [31:0] hi_rdata;
 wire [31:0] lo_rdata;
 
+wire        es_ex;
+wire [ 4:0] es_exccode;
+wire [31:0] es_badvaddr;
+wire [31:0] es_cp0_wdata;
+wire        es_res_from_cp0;
 wire        es_res_from_mem;
 wire [ 1:0] es_mem_addr_low;
 
-assign es_res_from_mem = es_load_op;
-assign es_to_ms_bus = {es_res_from_mem,  //78:78
+assign es_res_from_cp0 = es_mfc0_op;
+assign es_res_from_mem = es_lb_op | es_lbu_op | es_lh_op | es_lhu_op | es_lw_op | es_lwl_op | es_lwr_op;
+assign es_to_ms_bus = {es_ex          ,  //160:160
+                       es_exccode     ,  //159:155
+                       es_bd          ,  //154:154
+                       es_badvaddr    ,  //153:122
+                       es_eret_op     ,  //121:121
+                       es_mtc0_op     ,  //120:120
+                       es_cp0_addr    ,  //119:112
+                       es_cp0_wdata   ,  //111:80
+                       es_res_from_cp0,  //79:79
+                       es_res_from_mem,  //78:78
                        es_mem_addr_low,  //77:76
                        es_lb_op       ,  //75:75
                        es_lbu_op      ,  //74:74
@@ -142,6 +177,8 @@ always @(posedge clk) begin
     if (reset) begin
         es_valid <= 1'b0;
     end
+    else if (handle_ex)
+        es_valid <= 1'b0;
     else if (es_allowin) begin
         es_valid <= ds_to_es_valid;
     end
@@ -215,7 +252,9 @@ assign remainder = es_div_op ? (dout[31:0] ^ {32{es_alu_src1[31]}}) + es_alu_src
                                dout[31:0];
 
 always @(posedge clk) begin
-    if (es_mul_op || es_mulu_op)
+    if (es_ex || ms_ex || handle_ex)
+        hi <= hi;
+    else if (es_mul_op || es_mulu_op)
         hi <= pout[63:32];
     else if ((es_div_op || es_divu_op) && dout_tvalid)
         hi <= remainder;
@@ -223,7 +262,9 @@ always @(posedge clk) begin
         hi <= es_alu_src1;
 end
 always @(posedge clk) begin
-    if (es_mul_op || es_mulu_op)
+    if (es_ex || ms_ex || handle_ex)
+        lo <= lo;
+    else if (es_mul_op || es_mulu_op)
         lo <= pout[31:0];
     else if ((es_div_op || es_divu_op) && dout_tvalid)
         lo <= quotient;
@@ -241,7 +282,8 @@ assign es_alu_result = es_hi_re ? hi_rdata :
 assign es_mem_addr_low = es_alu_result[1:0];
 
 assign data_sram_en    = 1'b1;
-assign data_sram_wen   = es_mem_we && es_valid ? es_sb_op  ? (es_mem_addr_low == 2'b00) ? 4'b0001 : 
+assign data_sram_wen   = (es_ex || ms_ex || handle_ex)     ? 4'b0000 : 
+                         es_mem_we && es_valid ? es_sb_op  ? (es_mem_addr_low == 2'b00) ? 4'b0001 : 
                                                              (es_mem_addr_low == 2'b01) ? 4'b0010 : 
                                                              (es_mem_addr_low == 2'b10) ? 4'b0100 : 
                                                                                           4'b1000 : 
@@ -269,5 +311,21 @@ assign data_sram_wdata = es_sb_op  ? {4{es_rt_value[7:0]}} :
                                      (es_mem_addr_low == 2'b01) ? {es_rt_value[23:0], 8'b0} : 
                                                                   es_rt_value : 
                                      es_rt_value;
+
+assign es_cp0_wdata = es_rt_value;
+
+//exception
+wire ex_adel;
+wire ex_ades;
+assign ex_adel  = es_lw_op && es_mem_addr_low != 2'b00
+               || (es_lh_op || es_lhu_op) && es_mem_addr_low[0] != 1'b0; 
+assign ex_ades  = es_sw_op && es_mem_addr_low != 2'b00
+               || es_sh_op && es_mem_addr_low[0] != 1'b0; 
+
+assign es_ex = (ex_adel || ex_ades) ? 1'b1: ds_ex;
+assign es_exccode = ex_adel ? `EX_ADEL : 
+                    ex_ades ? `EX_ADES : 
+                              ds_exccode;
+assign es_badvaddr = (ex_adel || ex_ades) ? es_pc : ds_badvaddr;
 
 endmodule

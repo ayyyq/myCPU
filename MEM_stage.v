@@ -14,12 +14,23 @@ module mem_stage(
     output [`MS_TO_WS_BUS_WD -1:0] ms_to_ws_bus  ,
     //from data-sram
     input  [31                 :0] data_sram_rdata,
-    output reg ms_valid
+    output reg ms_valid,
+    output ms_ex,
+    input handle_ex
 );
 
 wire        ms_ready_go;
 
 reg [`ES_TO_MS_BUS_WD -1:0] es_to_ms_bus_r;
+wire        es_ex;
+wire [ 4:0] es_exccode;
+wire        ms_bd;
+wire [31:0] ms_badvaddr;
+wire        ms_eret_op;
+wire        ms_mtc0_op;
+wire [ 7:0] ms_cp0_addr;
+wire [31:0] ms_cp0_wdata;
+wire        ms_res_from_cp0;
 wire        ms_res_from_mem;
 wire [ 1:0] ms_mem_addr_low;
 wire        ms_lb_op;
@@ -32,7 +43,16 @@ wire        ms_gr_we;
 wire [ 4:0] ms_dest;
 wire [31:0] ms_alu_result;
 wire [31:0] ms_pc;
-assign {ms_res_from_mem,  //78:78
+assign {es_ex          ,  //160:160
+        es_exccode     ,  //159:155
+        ms_bd          ,  //154:154
+        ms_badvaddr    ,  //153:122
+        ms_eret_op     ,  //121:121
+        ms_mtc0_op     ,  //120:120
+        ms_cp0_addr    ,  //119:112
+        ms_cp0_wdata   ,  //111:80
+        ms_res_from_cp0,  //79:79
+        ms_res_from_mem,  //78:78
         ms_mem_addr_low,  //77:76
         ms_lb_op       ,  //75:75
         ms_lbu_op      ,  //74:74
@@ -46,11 +66,21 @@ assign {ms_res_from_mem,  //78:78
         ms_pc             //31:0
        } = es_to_ms_bus_r;
 
+wire [ 4:0] ms_exccode;
 wire [ 3:0] ms_rf_we;
 wire [31:0] mem_result;
 wire [31:0] ms_final_result;
 
-assign ms_to_ws_bus = {ms_rf_we       ,  //72:69
+assign ms_to_ws_bus = {ms_ex          ,  //154:154
+                       ms_exccode     ,  //153:149
+                       ms_bd          ,  //148:148
+                       ms_badvaddr    ,  //147:116
+                       ms_eret_op     ,  //115:115
+                       ms_mtc0_op     ,  //114:114
+                       ms_cp0_addr    ,  //113:106
+                       ms_cp0_wdata   ,  //105:74
+                       ms_res_from_cp0,  //73:73
+                       ms_rf_we       ,  //72:69
                        ms_dest        ,  //68:64
                        ms_final_result,  //63:32
                        ms_pc             //31:0
@@ -63,6 +93,8 @@ always @(posedge clk) begin
     if (reset) begin
         ms_valid <= 1'b0;
     end
+    else if (handle_ex)
+        ms_valid <= 1'b0;
     else if (ms_allowin) begin
         ms_valid <= es_to_ms_valid;
     end
@@ -107,5 +139,9 @@ assign ms_rf_we = ms_lwl_op ? (ms_mem_addr_low == 2'b00) ? 4'b1000 :
 
 assign ms_final_result = ms_res_from_mem ? mem_result
                                          : ms_alu_result;
+
+//exception
+assign ms_ex = es_ex;
+assign ms_exccode = es_exccode;
 
 endmodule
