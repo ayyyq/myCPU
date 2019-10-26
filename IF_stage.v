@@ -52,9 +52,7 @@ assign fs_to_ds_bus = {fs_ex      ,  //102:102
 // pre-IF stage
 assign to_fs_valid  = ~reset;
 assign seq_pc       = fs_pc + 3'h4;
-assign nextpc       = handle_ex ? ex_pc : 
-                      br_taken  ? br_target : 
-                                  seq_pc; 
+assign nextpc       = br_taken  ? br_target : seq_pc; 
 
 // IF stage
 assign fs_ready_go    = 1'b1;
@@ -73,6 +71,8 @@ always @(posedge clk) begin
     if (reset) begin
         fs_pc <= 32'hbfbffffc;  //trick: to make nextpc be 0xbfc00000 during reset 
     end
+    else if (handle_ex)
+        fs_pc <= ex_pc - 3'h4;
     else if (to_fs_valid && fs_allowin) begin
         fs_pc <= nextpc;
     end

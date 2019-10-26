@@ -235,7 +235,7 @@ assign ws_final_result = ws_res_from_cp0 ? (cp0_addr == `CR_BADVADDR) ? cp0_badv
                                            ms_final_result : 
                                            ms_final_result ;
 assign handle_ex = ws_valid && (ws_ex || eret_flush);
-assign ex_pc = eret_flush ? cp0_epc - 3'h4: 32'hbfc00380 - 3'h4;
+assign ex_pc = eret_flush ? cp0_epc: 32'hbfc00380;
 
 //interrupt
 assign ext_int_in = 6'h00;

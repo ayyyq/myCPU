@@ -168,7 +168,7 @@ assign es_to_ms_bus = {es_ex          ,  //160:160
                        es_pc             //31:0
                       };
 
-wire es_div_block = (es_div_op || es_divu_op) && !dout_tvalid;
+wire es_div_block = es_valid && (es_div_op || es_divu_op) && !dout_tvalid;
 
 assign es_ready_go    = !es_div_block;
 assign es_allowin     = !es_valid || es_ready_go && ms_allowin;
@@ -214,6 +214,8 @@ assign dividend_tvalid = (es_div_op || es_divu_op) && !dividend_valid;
 always @(posedge clk) begin
     if (reset)
         dividend_valid <= 1'b0;
+    else if (!es_valid)
+        dividend_valid <= 1'b0;
     else if ((es_div_op || es_divu_op) && dividend_tready)
         dividend_valid <= 1'b1;
     else if ((es_div_op || es_divu_op) && dout_tvalid)
@@ -224,6 +226,8 @@ reg divisor_valid;
 assign divisor_tvalid = (es_div_op || es_divu_op) && !divisor_valid;
 always @(posedge clk) begin
     if (reset)
+        divisor_valid <= 1'b0;
+    else if (!es_valid)
         divisor_valid <= 1'b0;
     else if ((es_div_op || es_divu_op) && divisor_tready)
         divisor_valid <= 1'b1;
