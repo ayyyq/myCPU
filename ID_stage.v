@@ -240,27 +240,33 @@ assign ds_to_es_bus = {ds_ex       ,  //205:205
                       };
 
 //exe_stage
+wire es_mfc0_op;
 wire es_load_op;
 wire es_gr_we;
 wire [4:0] es_dest;
 wire [31:0] es_alu_result;
+assign es_mfc0_op = es_to_ms_bus[79];
 assign es_load_op = es_to_ms_bus[78];
 assign es_gr_we = es_to_ms_bus[69];
 assign es_dest = es_to_ms_bus[68:64];
 assign es_alu_result = es_to_ms_bus[63:32];
 
 //mem_stage
+wire ms_mfc0_op;
 wire [ 3:0] ms_rf_we;
 wire [ 4:0] ms_dest;
 wire [31:0] ms_final_result;
+assign ms_mfc0_op = ms_to_ws_bus[73];
 assign ms_rf_we = ms_to_ws_bus[72:69];
 assign ms_dest = ms_to_ws_bus[68:64];
 assign ms_final_result = ms_to_ws_bus[63:32];
 
-wire es_load_block;
-assign es_load_block = es_valid && es_load_op && es_dest != 5'b0 && (es_dest == rs || es_dest == rt);
+wire load_block;
+assign load_block = es_valid && es_load_op && es_dest != 5'b0 && (es_dest == rs || es_dest == rt);
+wire mfc0_block;
+assign mfc0_block = es_valid && es_mfc0_op || ms_valid && ms_mfc0_op;
 
-assign ds_ready_go    = !es_load_block;
+assign ds_ready_go    = !load_block && !mfc0_block;
 assign ds_allowin     = !ds_valid || ds_ready_go && es_allowin;
 assign ds_to_es_valid = ds_valid && ds_ready_go;
 always @(posedge clk) begin
