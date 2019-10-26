@@ -395,7 +395,7 @@ assign src2_is_zero_imm = inst_andi | inst_ori | inst_xori;
 assign src2_is_8    = inst_bgezal | inst_bltzal | inst_jal | inst_jalr;
 assign res_from_mem = inst_lb | inst_lbu | inst_lh | inst_lhu | inst_lw | inst_lwl | inst_lwr;
 assign dst_is_r31   = inst_bgezal | inst_bltzal | inst_jal;
-assign dst_is_rt    = inst_addi | inst_addiu | inst_slti | inst_sltiu | inst_andi | inst_ori | inst_xori | inst_lui | inst_lb | inst_lbu | inst_lh | inst_lhu | inst_lw | inst_lwl | inst_lwr;
+assign dst_is_rt    = inst_addi | inst_addiu | inst_slti | inst_sltiu | inst_andi | inst_ori | inst_xori | inst_lui | inst_lb | inst_lbu | inst_lh | inst_lhu | inst_lw | inst_lwl | inst_lwr | inst_mfc0;
 
 assign gr_we        = ~inst_sb & ~inst_sh & ~inst_sw & ~inst_swl & ~inst_swr & ~inst_beq & ~inst_bne & ~inst_bgez & ~inst_bgtz & ~inst_blez & ~inst_bltz & ~inst_j & ~inst_jr & ~inst_mult & ~inst_multu & ~inst_div & ~inst_divu & ~inst_mthi & ~inst_mtlo & ~inst_eret & ~inst_mtc0 & ~inst_syscall;
 assign mem_we       = inst_sb | inst_sh | inst_sw | inst_swl | inst_swr;

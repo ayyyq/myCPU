@@ -69,6 +69,8 @@ always @(posedge clk) begin
     if (reset) begin
         ws_valid <= 1'b0;
     end
+    else if (handle_ex)
+        ws_valid <= 1'b0;
     else if (ws_allowin) begin
         ws_valid <= ms_to_ws_valid;
     end
@@ -78,9 +80,9 @@ always @(posedge clk) begin
     end
 end
 
-assign rf_we    = ws_ex ?    4'b0 : 
+assign rf_we    = ws_ex    ? 4'b0 : 
                   ws_valid ? ws_rf_we : 
-                             4'b0 ;
+                             4'b0;
 assign rf_waddr = ws_dest;
 assign rf_wdata = ws_final_result;
 
@@ -225,12 +227,14 @@ end
 assign ws_ex = ms_ex;
 assign ws_exccode = ms_exccode;
 assign ws_final_result = ws_res_from_cp0 ? (cp0_addr == `CR_BADVADDR) ? cp0_badvaddr : 
+                                           (cp0_addr == `CR_COUNT) ? cp0_count : 
+                                           (cp0_addr == `CR_COMPARE) ? cp0_compare : 
                                            (cp0_addr == `CR_STATUS) ? cp0_status : 
                                            (cp0_addr == `CR_CAUSE) ? cp0_cause : 
                                            (cp0_addr == `CR_EPC) ? cp0_epc : 
                                            ms_final_result : 
                                            ms_final_result ;
-assign handle_ex = ws_ex || eret_flush;
+assign handle_ex = ws_valid && (ws_ex || eret_flush);
 assign ex_pc = eret_flush ? cp0_epc : 32'hbfc00380;
 
 //interrupt
