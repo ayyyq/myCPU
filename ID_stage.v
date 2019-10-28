@@ -264,7 +264,8 @@ assign ms_final_result = ms_to_ws_bus[63:32];
 wire load_block;
 assign load_block = es_valid && es_load_op && es_dest != 5'b0 && (es_dest == rs || es_dest == rt);
 wire mfc0_block;
-assign mfc0_block = es_valid && es_mfc0_op || ms_valid && ms_mfc0_op;
+assign mfc0_block = es_valid && es_mfc0_op && es_dest != 5'b0 && (es_dest == rs || es_dest == rt)
+                 || ms_valid && ms_mfc0_op && ms_dest != 5'b0 && (ms_dest == rs || ms_dest == rt);
 
 assign ds_ready_go    = !load_block && !mfc0_block;
 assign ds_allowin     = !ds_valid || ds_ready_go && es_allowin;
