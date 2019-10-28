@@ -168,7 +168,10 @@ assign es_to_ms_bus = {es_ex          ,  //160:160
                        es_pc             //31:0
                       };
 
-wire es_div_block = es_valid && (es_div_op || es_divu_op) && !dout_tvalid;
+wire es_div_block;
+assign es_div_block = es_valid && (es_div_op || es_divu_op) && !dout_tvalid;
+wire forward_ex;
+assign forward_ex = es_ex || ms_ex || handle_ex;
 
 assign es_ready_go    = !es_div_block;
 assign es_allowin     = !es_valid || es_ready_go && ms_allowin;
@@ -210,28 +213,24 @@ assign prod_src2 = es_mul_op ? {es_alu_src2[31], es_alu_src2[31:0]} :
 assign pout = $signed(prod_src1) * $signed(prod_src2);
 
 reg dividend_valid;
-assign dividend_tvalid = (es_div_op || es_divu_op) && !dividend_valid;
+assign dividend_tvalid = !forward_ex && (es_div_op || es_divu_op) && !dividend_valid;
 always @(posedge clk) begin
     if (reset)
         dividend_valid <= 1'b0;
-    else if (!es_valid)
-        dividend_valid <= 1'b0;
-    else if ((es_div_op || es_divu_op) && dividend_tready)
+    else if (dividend_tvalid && dividend_tready)
         dividend_valid <= 1'b1;
-    else if ((es_div_op || es_divu_op) && dout_tvalid)
+    else if (dout_tvalid)
         dividend_valid <= 1'b0;
 end
 
 reg divisor_valid;
-assign divisor_tvalid = (es_div_op || es_divu_op) && !divisor_valid;
+assign divisor_tvalid = !forward_ex && (es_div_op || es_divu_op) && !divisor_valid;
 always @(posedge clk) begin
     if (reset)
         divisor_valid <= 1'b0;
-    else if (!es_valid)
-        divisor_valid <= 1'b0;
-    else if ((es_div_op || es_divu_op) && divisor_tready)
+    else if (divisor_tvalid && divisor_tready)
         divisor_valid <= 1'b1;
-    else if ((es_div_op || es_divu_op) && dout_tvalid)
+    else if (dout_tvalid)
         divisor_valid <= 1'b0;
 end
 
@@ -256,7 +255,7 @@ assign remainder = es_div_op ? (dout[31:0] ^ {32{es_alu_src1[31]}}) + es_alu_src
                                dout[31:0];
 
 always @(posedge clk) begin
-    if (es_ex || ms_ex || handle_ex)
+    if (forward_ex)
         hi <= hi;
     else if (es_mul_op || es_mulu_op)
         hi <= pout[63:32];
@@ -266,7 +265,7 @@ always @(posedge clk) begin
         hi <= es_alu_src1;
 end
 always @(posedge clk) begin
-    if (es_ex || ms_ex || handle_ex)
+    if (forward_ex)
         lo <= lo;
     else if (es_mul_op || es_mulu_op)
         lo <= pout[31:0];
@@ -286,7 +285,7 @@ assign es_alu_result = es_hi_re ? hi_rdata :
 assign es_mem_addr_low = es_alu_result[1:0];
 
 assign data_sram_en    = 1'b1;
-assign data_sram_wen   = (es_ex || ms_ex || handle_ex)     ? 4'b0000 : 
+assign data_sram_wen   = forward_ex     ? 4'b0000 : 
                          es_mem_we && es_valid ? es_sb_op  ? (es_mem_addr_low == 2'b00) ? 4'b0001 : 
                                                              (es_mem_addr_low == 2'b01) ? 4'b0010 : 
                                                              (es_mem_addr_low == 2'b10) ? 4'b0100 : 
