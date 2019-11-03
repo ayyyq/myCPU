@@ -16,7 +16,7 @@ module if_stage(
     output [31:0] inst_sram_addr ,
     output [31:0] inst_sram_wdata,
     input  [31:0] inst_sram_rdata,
-    input         handle_ex      ,
+    input         ws_handle_ex      ,
     input  [31:0] ex_pc
 );
 
@@ -62,7 +62,7 @@ always @(posedge clk) begin
     if (reset) begin
         fs_valid <= 1'b0;
     end
-    else if (handle_ex)
+    else if (ws_handle_ex)
         fs_valid <= 1'b0;
     else if (fs_allowin) begin
         fs_valid <= to_fs_valid;
@@ -71,7 +71,7 @@ always @(posedge clk) begin
     if (reset) begin
         fs_pc <= 32'hbfbffffc;  //trick: to make nextpc be 0xbfc00000 during reset 
     end
-    else if (handle_ex)
+    else if (ws_handle_ex)
         fs_pc <= ex_pc - 3'h4;
     else if (to_fs_valid && fs_allowin) begin
         fs_pc <= nextpc;
@@ -82,7 +82,7 @@ end
 wire ex_adel;
 assign ex_adel = fs_pc[1:0] != 2'b00;
 
-assign fs_ex = ex_adel ? 1'b1 : 1'b0;
+assign fs_ex = fs_valid ? ex_adel : 1'b0;
 assign fs_exccode = ex_adel ? `EX_ADEL : 5'h00;
 assign fs_bd = br_op;
 assign fs_badvaddr = fs_pc;

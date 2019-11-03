@@ -1,6 +1,10 @@
 module mycpu_top(
     input         clk,
     input         resetn,
+    
+    // external interrupt
+    input  [ 5:0] ext_int_in,
+    
     // inst sram interface
     output        inst_sram_en,
     output [ 3:0] inst_sram_wen,
@@ -39,10 +43,10 @@ wire [`BR_BUS_WD       -1:0] br_bus;
 wire es_valid;
 wire ms_valid;
 wire ws_valid;
-wire ms_ex;
-wire handle_ex;
+wire ms_handle_ex;
+wire ws_handle_ex;
 wire [31:0] ex_pc;
-
+wire has_int;
 
 // IF stage
 if_stage if_stage(
@@ -61,7 +65,7 @@ if_stage if_stage(
     .inst_sram_addr (inst_sram_addr ),
     .inst_sram_wdata(inst_sram_wdata),
     .inst_sram_rdata(inst_sram_rdata),
-    .handle_ex      (handle_ex      ),
+    .ws_handle_ex   (ws_handle_ex   ),
     .ex_pc          (ex_pc          )
 );
 // ID stage
@@ -88,7 +92,7 @@ id_stage id_stage(
     //to rf: for write back
     .ws_valid       (ws_valid       ),
     .ws_to_rf_bus   (ws_to_rf_bus   ),
-    .handle_ex      (handle_ex      )
+    .ws_handle_ex   (ws_handle_ex   )
 );
 // EXE stage
 exe_stage exe_stage(
@@ -109,8 +113,9 @@ exe_stage exe_stage(
     .data_sram_addr (data_sram_addr ),
     .data_sram_wdata(data_sram_wdata),
     .es_valid       (es_valid       ),
-    .ms_ex          (ms_ex          ),
-    .handle_ex      (handle_ex      )
+    .ms_handle_ex   (ms_handle_ex   ),
+    .ws_handle_ex   (ws_handle_ex   ),
+    .has_int        (has_int        )
 );
 // MEM stage
 mem_stage mem_stage(
@@ -128,13 +133,14 @@ mem_stage mem_stage(
     //from data-sram
     .data_sram_rdata(data_sram_rdata),
     .ms_valid       (ms_valid       ),
-    .ms_ex          (ms_ex          ),
-    .handle_ex      (handle_ex      )
+    .ms_handle_ex   (ms_handle_ex   ),
+    .ws_handle_ex   (ws_handle_ex   )
 );
 // WB stage
 wb_stage wb_stage(
     .clk            (clk            ),
     .reset          (reset          ),
+    .ext_int_in     (ext_int_in     ),
     //allowin
     .ws_allowin     (ws_allowin     ),
     //from ms
@@ -148,8 +154,9 @@ wb_stage wb_stage(
     .debug_wb_rf_wnum (debug_wb_rf_wnum ),
     .debug_wb_rf_wdata(debug_wb_rf_wdata),
     .ws_valid         (ws_valid         ),
-    .handle_ex        (handle_ex        ),
-    .ex_pc            (ex_pc            )
+    .ws_handle_ex     (ws_handle_ex     ),
+    .ex_pc            (ex_pc            ),
+    .has_int          (has_int          )
 );
 
 endmodule

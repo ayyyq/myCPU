@@ -18,8 +18,9 @@ module exe_stage(
     output [31:0] data_sram_addr ,
     output [31:0] data_sram_wdata,
     output reg es_valid,
-    input ms_ex,
-    input handle_ex
+    input ms_handle_ex,
+    input ws_handle_ex,
+    input has_int
 );
 
 wire        es_ready_go   ;
@@ -29,6 +30,7 @@ wire        ds_ex         ;
 wire [ 4:0] ds_exccode    ;
 wire        es_bd         ;
 wire [31:0] ds_badvaddr   ;
+wire        es_ov_op      ;
 wire        es_eret_op    ;
 wire        es_mfc0_op    ;
 wire        es_mtc0_op    ;
@@ -66,10 +68,11 @@ wire [15:0] es_imm        ;
 wire [31:0] es_rs_value   ;
 wire [31:0] es_rt_value   ;
 wire [31:0] es_pc         ;
-assign {ds_ex          ,  //205:205
-        ds_exccode     ,  //204:200
-        es_bd          ,  //199:199
-        ds_badvaddr    ,  //198:167
+assign {ds_ex          ,  //206:206
+        ds_exccode     ,  //205:201
+        es_bd          ,  //200:200
+        ds_badvaddr    ,  //199:168
+        es_ov_op       ,  //167:167
         es_eret_op     ,  //166:166
         es_mfc0_op     ,  //165:165
         es_mtc0_op     ,  //164:164
@@ -171,7 +174,7 @@ assign es_to_ms_bus = {es_ex          ,  //160:160
 wire es_div_block;
 assign es_div_block = es_valid && (es_div_op || es_divu_op) && !dout_tvalid;
 wire forward_ex;
-assign forward_ex = es_ex || ms_ex || handle_ex;
+assign forward_ex = es_ex || ms_handle_ex || ws_handle_ex;
 
 assign es_ready_go    = !es_div_block;
 assign es_allowin     = !es_valid || es_ready_go && ms_allowin;
@@ -180,7 +183,7 @@ always @(posedge clk) begin
     if (reset) begin
         es_valid <= 1'b0;
     end
-    else if (handle_ex)
+    else if (ws_handle_ex)
         es_valid <= 1'b0;
     else if (es_allowin) begin
         es_valid <= ds_to_es_valid;
@@ -318,17 +321,26 @@ assign data_sram_wdata = es_sb_op  ? {4{es_rt_value[7:0]}} :
 assign es_cp0_wdata = es_rt_value;
 
 //exception
+wire ex_int;
 wire ex_adel;
 wire ex_ades;
+wire ex_ov;
+assign ex_int = has_int;
 assign ex_adel  = es_lw_op && es_mem_addr_low != 2'b00
                || (es_lh_op || es_lhu_op) && es_mem_addr_low[0] != 1'b0; 
 assign ex_ades  = es_sw_op && es_mem_addr_low != 2'b00
                || es_sh_op && es_mem_addr_low[0] != 1'b0; 
-
-assign es_ex = (ex_adel || ex_ades) ? 1'b1: ds_ex;
-assign es_exccode = ex_adel ? `EX_ADEL : 
-                    ex_ades ? `EX_ADES : 
-                              ds_exccode;
-assign es_badvaddr = (ex_adel || ex_ades) ? es_pc : ds_badvaddr;
+assign ex_ov = es_ov_op && 
+              (es_alu_op[0] && (es_alu_src1[31] & es_alu_src2[31] & ~aluout[31] | ~es_alu_src1[31] & ~es_alu_src2[31] & aluout[31]) ||  
+               es_alu_op[1] && (es_alu_src1[31] & ~es_alu_src2[31] & ~aluout[31] | ~es_alu_src1[31] & es_alu_src2[31] & aluout[31])
+              );
+assign es_ex = es_valid ? ex_int | ds_ex | ex_ov | ex_adel | ex_ades : 1'b0;
+assign es_exccode = ex_int  ? `EX_INT   : 
+                    ds_ex   ? ds_exccode: 
+                    ex_ov   ? `EX_OV    : 
+                    ex_adel ? `EX_ADEL  : 
+                    ex_ades ? `EX_ADES  : 
+                              5'h00     ;
+assign es_badvaddr = (ds_ex && ds_exccode == `EX_ADEL)? ds_badvaddr : es_alu_result;
 
 endmodule

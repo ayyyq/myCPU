@@ -23,7 +23,7 @@ module id_stage(
     //to rf: for write back
     input                          ws_valid      ,
     input  [`WS_TO_RF_BUS_WD -1:0] ws_to_rf_bus  ,
-    input                          handle_ex
+    input                          ws_handle_ex
 );
 
 reg         ds_valid   ;
@@ -62,7 +62,7 @@ wire [31:0] br_target;
 //ds_to_es_bus
 wire        ds_ex;
 wire [ 4:0] ds_exccode;
-
+wire        ov_op;
 wire        eret_op;
 wire        mfc0_op;
 wire        mtc0_op;
@@ -181,6 +181,7 @@ wire        inst_eret;
 wire        inst_mfc0;
 wire        inst_mtc0;
 wire        inst_syscall;
+wire        inst_break;
 
 wire        dst_is_r31;  
 wire        dst_is_rt;   
@@ -196,10 +197,12 @@ wire        rs_lt_zero;
 
 assign br_bus       = {br_op, br_taken, br_target};
 
-assign ds_to_es_bus = {ds_ex       ,  //205:205
-                       ds_exccode  ,  //204:200
-                       ds_bd       ,  //199:199
-                       ds_badvaddr ,  //198:167
+
+assign ds_to_es_bus = {ds_ex       ,  //206:206
+                       ds_exccode  ,  //205:201
+                       ds_bd       ,  //200:200
+                       ds_badvaddr ,  //199:168
+                       ov_op       ,  //167:167
                        eret_op     ,  //166:166
                        mfc0_op     ,  //165:165
                        mtc0_op     ,  //164:164
@@ -275,7 +278,7 @@ always @(posedge clk) begin
     if (reset) begin
         ds_valid <= 1'b0;
     end
-    else if (handle_ex)
+    else if (ws_handle_ex)
         ds_valid <= 1'b0;
     else if (ds_allowin) begin
         ds_valid <= fs_to_ds_valid;
@@ -364,6 +367,7 @@ assign inst_mfc0   = op_d[6'h10] & rs_d[5'h00] & ds_inst[10:3] == 8'h00;
 assign inst_mtc0   = op_d[6'h10] & rs_d[5'h04] & ds_inst[10:3] == 8'h00;
 
 assign inst_syscall = op_d[6'h00] & func_d[6'h0c];
+assign inst_break   = op_d[6'h00] & func_d[6'h0d];
 
 assign alu_op[ 0] = inst_add | inst_addu | inst_addi | inst_addiu | inst_lb | inst_lbu | inst_lh | inst_lhu | inst_lw | inst_lwl | inst_lwr | inst_sb | inst_sh | inst_sw | inst_swl | inst_swr | inst_bgezal | inst_bltzal | inst_jal | inst_jalr;
 assign alu_op[ 1] = inst_sub | inst_subu;
@@ -394,6 +398,7 @@ assign mul_op  = inst_mult;
 assign mulu_op = inst_multu;
 assign div_op  = inst_div;
 assign divu_op = inst_divu;
+assign ov_op   = inst_add | inst_addi | inst_sub;
 
 assign src1_is_sa   = inst_sll   | inst_srl | inst_sra;
 assign src1_is_pc   = inst_bgezal | inst_bltzal | inst_jal | inst_jalr;
@@ -404,7 +409,7 @@ assign res_from_mem = inst_lb | inst_lbu | inst_lh | inst_lhu | inst_lw | inst_l
 assign dst_is_r31   = inst_bgezal | inst_bltzal | inst_jal;
 assign dst_is_rt    = inst_addi | inst_addiu | inst_slti | inst_sltiu | inst_andi | inst_ori | inst_xori | inst_lui | inst_lb | inst_lbu | inst_lh | inst_lhu | inst_lw | inst_lwl | inst_lwr | inst_mfc0;
 
-assign gr_we        = ~inst_sb & ~inst_sh & ~inst_sw & ~inst_swl & ~inst_swr & ~inst_beq & ~inst_bne & ~inst_bgez & ~inst_bgtz & ~inst_blez & ~inst_bltz & ~inst_j & ~inst_jr & ~inst_mult & ~inst_multu & ~inst_div & ~inst_divu & ~inst_mthi & ~inst_mtlo & ~inst_eret & ~inst_mtc0 & ~inst_syscall;
+assign gr_we        = ~inst_sb & ~inst_sh & ~inst_sw & ~inst_swl & ~inst_swr & ~inst_beq & ~inst_bne & ~inst_bgez & ~inst_bgtz & ~inst_blez & ~inst_bltz & ~inst_j & ~inst_jr & ~inst_mult & ~inst_multu & ~inst_div & ~inst_divu & ~inst_mthi & ~inst_mtlo & ~inst_eret & ~inst_mtc0 & ~inst_syscall & ~inst_break;
 assign mem_we       = inst_sb | inst_sh | inst_sw | inst_swl | inst_swr;
 assign hi_re        = inst_mfhi;
 assign lo_re        = inst_mflo;
@@ -466,10 +471,11 @@ assign rs_eq_rt = (rs_value == rt_value);
 assign rs_eq_zero = (rs_value == 32'b0);
 assign rs_lt_zero = (rs_value[31] == 1'b1);
 
-assign br_op = inst_beq | inst_bne | 
-               inst_bgez | inst_bgtz | inst_blez | inst_blez | 
+assign br_op = ds_valid && 
+              (inst_beq | inst_bne | 
+               inst_bgez | inst_bgtz | inst_blez | inst_bltz | 
                inst_bgezal | inst_bltzal | 
-               inst_j | inst_jal | inst_jr | inst_jalr;
+               inst_j | inst_jal | inst_jr | inst_jalr);
 assign br_taken = (   inst_beq    &&  rs_eq_rt
                    || inst_bne    && !rs_eq_rt
                    || inst_bgez   && !rs_lt_zero
@@ -488,10 +494,30 @@ assign br_target = (inst_beq || inst_bne || inst_bgez || inst_bgtz || inst_blez 
                    /*(inst_jal || inst_j)*/  {fs_pc[31:28], jidx[25:0], 2'b0};
 
 //exception
-wire ex_syscall = inst_syscall;
-
-assign ds_ex = ex_syscall ? 1'b1 : fs_ex;
-assign ds_exccode = ex_syscall ? `EX_SYS : fs_exccode;
+wire ex_sys;
+wire ex_bp;
+wire ex_ri;
+assign ex_sys = inst_syscall;
+assign ex_bp = inst_break;
+assign ex_ri = ~inst_add   & ~inst_addi & ~inst_addu & ~inst_addiu & ~inst_sub  & ~inst_subu & 
+               ~inst_slt   & ~inst_slti & ~inst_sltu & ~inst_sltiu & 
+               ~inst_div   & ~inst_divu & ~inst_mult & ~inst_multu & 
+               ~inst_and   & ~inst_andi & ~inst_lui  & ~inst_nor   & ~inst_or   & ~inst_ori  & ~inst_xor    & ~inst_xori & 
+               ~inst_sllv  & ~inst_sll  & ~inst_srav & ~inst_sra   & ~inst_srlv & ~inst_srl  & 
+               ~inst_beq   & ~inst_bne  & ~inst_bgez & ~inst_bgtz  & ~inst_blez & ~inst_bltz & ~inst_bgezal & ~inst_bltzal & 
+               ~inst_j     & ~inst_jal  & ~inst_jr   & ~inst_jalr  & 
+               ~inst_mfhi  & ~inst_mflo & ~inst_mthi & ~inst_mtlo  & 
+               ~inst_break & ~inst_syscall & 
+               ~inst_lb    & ~inst_lbu  & ~inst_lh   & ~inst_lhu   & ~inst_lw   & ~inst_lwl  & ~inst_lwr & 
+               ~inst_sb    & ~inst_sh   & ~inst_sw   & ~inst_swl   & ~inst_swr  & 
+               ~inst_eret  & ~inst_mfc0 & ~inst_mtc0;
+               
+assign ds_ex = ds_valid ? fs_ex | ex_ri | ex_bp | ex_sys : 1'b0;
+assign ds_exccode = fs_ex      ? fs_exccode :
+                    ex_ri      ? `EX_RI     :
+                    ex_bp      ? `EX_BP     :
+                    ex_sys     ? `EX_SYS    :
+                                 5'h00      ;
 
 assign eret_op = inst_eret;
 assign mfc0_op = inst_mfc0;

@@ -15,8 +15,8 @@ module mem_stage(
     //from data-sram
     input  [31                 :0] data_sram_rdata,
     output reg ms_valid,
-    output ms_ex,
-    input handle_ex
+    output ms_handle_ex,
+    input ws_handle_ex
 );
 
 wire        ms_ready_go;
@@ -66,6 +66,7 @@ assign {es_ex          ,  //160:160
         ms_pc             //31:0
        } = es_to_ms_bus_r;
 
+wire        ms_ex;
 wire [ 4:0] ms_exccode;
 wire [ 3:0] ms_rf_we;
 wire [31:0] mem_result;
@@ -93,7 +94,7 @@ always @(posedge clk) begin
     if (reset) begin
         ms_valid <= 1'b0;
     end
-    else if (handle_ex)
+    else if (ws_handle_ex)
         ms_valid <= 1'b0;
     else if (ms_allowin) begin
         ms_valid <= es_to_ms_valid;
@@ -141,7 +142,9 @@ assign ms_final_result = ms_res_from_mem ? mem_result
                                          : ms_alu_result;
 
 //exception
-assign ms_ex = es_ex;
+assign ms_ex = ms_valid ? es_ex : 1'b0;
 assign ms_exccode = es_exccode;
+
+assign ms_handle_ex = ms_valid && (ms_ex || ms_eret_op);
 
 endmodule

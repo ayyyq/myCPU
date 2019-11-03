@@ -3,6 +3,8 @@
 module wb_stage(
     input                           clk           ,
     input                           reset         ,
+    //external interrupt
+    input  [ 5:0]                   ext_int_in    ,                        
     //allowin
     output                          ws_allowin    ,
     //from ms
@@ -16,8 +18,9 @@ module wb_stage(
     output [ 4:0] debug_wb_rf_wnum ,
     output [31:0] debug_wb_rf_wdata,
     output reg ws_valid            ,
-    output handle_ex               ,
-    output [31:0] ex_pc
+    output ws_handle_ex               ,
+    output [31:0] ex_pc            ,
+    output has_int
 );
 
 wire        ws_ready_go;
@@ -69,7 +72,7 @@ always @(posedge clk) begin
     if (reset) begin
         ws_valid <= 1'b0;
     end
-    else if (handle_ex)
+    else if (ws_handle_ex)
         ws_valid <= 1'b0;
     else if (ws_allowin) begin
         ws_valid <= ms_to_ws_valid;
@@ -90,15 +93,13 @@ assign rf_wdata = ws_final_result;
 reg [31:0] cp0_badvaddr;
 reg [31:0] cp0_count;
 reg [31:0] cp0_compare;
-reg [31:0] cp0_status;
+reg [31:0] cp0_status;  
 reg [31:0] cp0_cause;
 reg [31:0] cp0_epc;
 
-wire [ 5:0] ext_int_in;
-wire has_int;
-
 wire mtc0_we;
 assign mtc0_we = ws_valid && mtc0_op && !ws_ex;
+
 wire count_eq_compare;
 assign count_eq_compare = cp0_count == cp0_compare;
 
@@ -204,7 +205,7 @@ end
 
 //CP0 BadVAddr
 always @(posedge clk) begin
-    if (ws_ex && ws_exccode == `EX_ADEL)
+    if (ws_ex && (ws_exccode == `EX_ADEL || ws_exccode == `EX_ADES))
         cp0_badvaddr <= ws_badvaddr;
 end
 
@@ -223,8 +224,12 @@ always @(posedge clk) begin
 end
 
 //CP0 Compare
+always @(posedge clk) begin
+    if (mtc0_we && cp0_addr == `CR_COMPARE)
+        cp0_compare <= cp0_wdata;
+end
 
-assign ws_ex = ms_ex;
+assign ws_ex = ws_valid ? ms_ex : 1'b0;
 assign ws_exccode = ms_exccode;
 assign ws_final_result = ws_res_from_cp0 ? (cp0_addr == `CR_BADVADDR) ? cp0_badvaddr : 
                                            (cp0_addr == `CR_COUNT) ? cp0_count : 
@@ -234,12 +239,12 @@ assign ws_final_result = ws_res_from_cp0 ? (cp0_addr == `CR_BADVADDR) ? cp0_badv
                                            (cp0_addr == `CR_EPC) ? cp0_epc : 
                                            ms_final_result : 
                                            ms_final_result ;
-assign handle_ex = ws_valid && (ws_ex || eret_flush);
+assign ws_handle_ex = ws_valid && (ws_ex || eret_flush);
 assign ex_pc = eret_flush ? cp0_epc: 32'hbfc00380;
 
 //interrupt
 assign ext_int_in = 6'h00;
-assign has_int = (cp0_cause_ip & cp0_status_im != 8'h00) && cp0_status_ie == 1'b1 && cp0_status_exl == 1'b0;
+assign has_int = (cp0_cause_ip & cp0_status_im) != 8'h00 && cp0_status_ie == 1'b1 && cp0_status_exl == 1'b0;
 
 // debug info generate
 assign debug_wb_pc       = ws_pc;
