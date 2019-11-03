@@ -334,7 +334,7 @@ assign ex_ov = es_ov_op &&
               (es_alu_op[0] && (es_alu_src1[31] & es_alu_src2[31] & ~aluout[31] | ~es_alu_src1[31] & ~es_alu_src2[31] & aluout[31]) ||  
                es_alu_op[1] && (es_alu_src1[31] & ~es_alu_src2[31] & ~aluout[31] | ~es_alu_src1[31] & es_alu_src2[31] & aluout[31])
               );
-assign es_ex = es_valid ? ex_int | ds_ex | ex_ov | ex_adel | ex_ades : 1'b0;
+assign es_ex = es_valid && (ex_int | ds_ex | ex_ov | ex_adel | ex_ades);
 assign es_exccode = ex_int  ? `EX_INT   : 
                     ds_ex   ? ds_exccode: 
                     ex_ov   ? `EX_OV    : 

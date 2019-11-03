@@ -229,7 +229,7 @@ always @(posedge clk) begin
         cp0_compare <= cp0_wdata;
 end
 
-assign ws_ex = ws_valid ? ms_ex : 1'b0;
+assign ws_ex = ws_valid && ms_ex;
 assign ws_exccode = ms_exccode;
 assign ws_final_result = ws_res_from_cp0 ? (cp0_addr == `CR_BADVADDR) ? cp0_badvaddr : 
                                            (cp0_addr == `CR_COUNT) ? cp0_count : 

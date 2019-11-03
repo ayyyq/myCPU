@@ -82,7 +82,7 @@ end
 wire ex_adel;
 assign ex_adel = fs_pc[1:0] != 2'b00;
 
-assign fs_ex = fs_valid ? ex_adel : 1'b0;
+assign fs_ex = fs_valid && ex_adel;
 assign fs_exccode = ex_adel ? `EX_ADEL : 5'h00;
 assign fs_bd = br_op;
 assign fs_badvaddr = fs_pc;

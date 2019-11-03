@@ -197,7 +197,6 @@ wire        rs_lt_zero;
 
 assign br_bus       = {br_op, br_taken, br_target};
 
-
 assign ds_to_es_bus = {ds_ex       ,  //206:206
                        ds_exccode  ,  //205:201
                        ds_bd       ,  //200:200
@@ -398,9 +397,8 @@ assign mul_op  = inst_mult;
 assign mulu_op = inst_multu;
 assign div_op  = inst_div;
 assign divu_op = inst_divu;
-assign ov_op   = inst_add | inst_addi | inst_sub;
 
-assign src1_is_sa   = inst_sll   | inst_srl | inst_sra;
+assign src1_is_sa   = inst_sll | inst_srl | inst_sra;
 assign src1_is_pc   = inst_bgezal | inst_bltzal | inst_jal | inst_jalr;
 assign src2_is_signed_imm  = inst_addi | inst_addiu | inst_slti | inst_sltiu | inst_lui | inst_lb | inst_lbu | inst_lh | inst_lhu | inst_lw | inst_lwl | inst_lwr | inst_sb | inst_sh | inst_sw | inst_swl | inst_swr;
 assign src2_is_zero_imm = inst_andi | inst_ori | inst_xori;
@@ -472,10 +470,10 @@ assign rs_eq_zero = (rs_value == 32'b0);
 assign rs_lt_zero = (rs_value[31] == 1'b1);
 
 assign br_op = ds_valid && 
-              (inst_beq | inst_bne | 
-               inst_bgez | inst_bgtz | inst_blez | inst_bltz | 
+              (inst_beq    | inst_bne | 
+               inst_bgez   | inst_bgtz   | inst_blez | inst_bltz | 
                inst_bgezal | inst_bltzal | 
-               inst_j | inst_jal | inst_jr | inst_jalr);
+               inst_j      | inst_jal    | inst_jr   | inst_jalr);
 assign br_taken = (   inst_beq    &&  rs_eq_rt
                    || inst_bne    && !rs_eq_rt
                    || inst_bgez   && !rs_lt_zero
@@ -512,13 +510,14 @@ assign ex_ri = ~inst_add   & ~inst_addi & ~inst_addu & ~inst_addiu & ~inst_sub  
                ~inst_sb    & ~inst_sh   & ~inst_sw   & ~inst_swl   & ~inst_swr  & 
                ~inst_eret  & ~inst_mfc0 & ~inst_mtc0;
                
-assign ds_ex = ds_valid ? fs_ex | ex_ri | ex_bp | ex_sys : 1'b0;
+assign ds_ex = ds_valid && (fs_ex | ex_ri | ex_bp | ex_sys);
 assign ds_exccode = fs_ex      ? fs_exccode :
                     ex_ri      ? `EX_RI     :
                     ex_bp      ? `EX_BP     :
                     ex_sys     ? `EX_SYS    :
                                  5'h00      ;
 
+assign ov_op   = inst_add | inst_addi | inst_sub;
 assign eret_op = inst_eret;
 assign mfc0_op = inst_mfc0;
 assign mtc0_op = inst_mtc0;

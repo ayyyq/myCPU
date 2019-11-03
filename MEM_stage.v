@@ -142,7 +142,7 @@ assign ms_final_result = ms_res_from_mem ? mem_result
                                          : ms_alu_result;
 
 //exception
-assign ms_ex = ms_valid ? es_ex : 1'b0;
+assign ms_ex = ms_valid && es_ex;
 assign ms_exccode = es_exccode;
 
 assign ms_handle_ex = ms_valid && (ms_ex || ms_eret_op);
