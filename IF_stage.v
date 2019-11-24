@@ -10,12 +10,17 @@ module if_stage(
     //to ds
     output                         fs_to_ds_valid ,
     output [`FS_TO_DS_BUS_WD -1:0] fs_to_ds_bus   ,
-    // inst sram interface
-    output        inst_sram_en   ,
-    output [ 3:0] inst_sram_wen  ,
+    // inst sram-like interface
+    output        inst_sram_req  ,
+    output        inst_sram_wr   ,
+    output [ 1:0] inst_sram_size ,
     output [31:0] inst_sram_addr ,
+    output [ 3:0] inst_sram_wstrb,
     output [31:0] inst_sram_wdata,
     input  [31:0] inst_sram_rdata,
+    input         inst_sram_addrok,
+    input         inst_sram_dataok,                       
+    //exception
     input         ws_handle_ex      ,
     input  [31:0] ex_pc
 );
@@ -50,12 +55,30 @@ assign fs_to_ds_bus = {fs_ex      ,  //102:102
                       };
 
 // pre-IF stage
-assign to_fs_valid  = ~reset;
+assign to_fs_valid  = ~reset && inst_sram_addrok; //pre_ready_go = inst_sram_addrok
 assign seq_pc       = fs_pc + 3'h4;
-assign nextpc       = br_taken  ? br_target : seq_pc; 
+assign nextpc       = br_taken ? br_target : seq_pc; 
+
+//buffer
+reg         buf_valid;
+reg  [31:0] buf_npc;
+wire [31:0] true_npc;
+
+assign true_npc = buf_valid ? buf_npc : nextpc;
+always @(posedge clk)begin
+    if(reset)
+        buf_valid <= 1'b0;
+    else if(to_fs_valid && fs_allowin)
+        buf_valid <= 1'b0;
+    else if(!buf_valid)
+        buf_valid <= 1'b1;
+     
+     if(!buf_valid)
+        buf_npc <=  nextpc;
+end
 
 // IF stage
-assign fs_ready_go    = 1'b1;
+assign fs_ready_go    = inst_sram_dataok;
 assign fs_allowin     = !fs_valid || fs_ready_go && ds_allowin;
 assign fs_to_ds_valid =  fs_valid && fs_ready_go;
 always @(posedge clk) begin
@@ -74,7 +97,7 @@ always @(posedge clk) begin
     else if (ws_handle_ex)
         fs_pc <= ex_pc - 3'h4;
     else if (to_fs_valid && fs_allowin) begin
-        fs_pc <= nextpc;
+        fs_pc <= true_npc;
     end
 end
 
@@ -87,10 +110,14 @@ assign fs_exccode = ex_adel ? `EX_ADEL : 5'h00;
 assign fs_bd = br_op;
 assign fs_badvaddr = fs_pc;
 
-assign inst_sram_en    = to_fs_valid && fs_allowin;
-assign inst_sram_wen   = 4'h0;
-assign inst_sram_addr  = nextpc;
-assign inst_sram_wdata = 32'b0;
+//assign inst_sram_en    = to_fs_valid && fs_allowin;
+//assign inst_sram_wen   = 4'h0;
+assign inst_sram_req   = to_fs_valid && fs_allowin; //en
+assign inst_sram_wr    = 1'h0; //wen
+assign inst_sram_size  = 2'd2;
+assign inst_sram_addr  = true_npc;
+assign inst_sram_wstrb = 4'h0; //wen
+assign inst_sram_wdata = 32'd0;
 
 assign fs_inst         = inst_sram_rdata;
 

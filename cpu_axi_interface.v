@@ -10,8 +10,11 @@ module cpu_axi_interface
 
 	//inst sram-like, slave
 	input         inst_req,
+    input         inst_wr,
 	input  [ 1:0] inst_size,
 	input  [31:0] inst_addr,
+    input  [ 3:0] inst_wstrb,
+    input  [31:0] inst_wdata,
 	output [31:0] inst_rdata,
 	output        inst_addr_ok,
 	output        inst_data_ok,

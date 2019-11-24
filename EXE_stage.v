@@ -12,11 +12,15 @@ module exe_stage(
     //to ms
     output                         es_to_ms_valid,
     output [`ES_TO_MS_BUS_WD -1:0] es_to_ms_bus  ,
-    // data sram interface
-    output        data_sram_en   ,
-    output [ 3:0] data_sram_wen  ,
+    // data sram-like interface
+    output        data_sram_req  ,
+    output        data_sram_wr   ,
+    output [ 1:0] data_sram_size ,
     output [31:0] data_sram_addr ,
+    output [ 3:0] data_sram_wstrb,
     output [31:0] data_sram_wdata,
+    input         data_sram_addrok,
+    //exception
     output reg es_valid,
     input ms_handle_ex,
     input ws_handle_ex,
@@ -145,6 +149,9 @@ wire [31:0] es_cp0_wdata;
 wire        es_res_from_cp0;
 wire        es_res_from_mem;
 wire [ 1:0] es_mem_addr_low;
+wire        es_load_op;
+wire        es_store_op;
+wire        es_mem_inst;
 
 assign es_res_from_cp0 = es_mfc0_op;
 assign es_res_from_mem = es_lb_op | es_lbu_op | es_lh_op | es_lhu_op | es_lw_op | es_lwl_op | es_lwr_op;
@@ -176,7 +183,7 @@ assign es_div_block = es_valid && (es_div_op || es_divu_op) && !dout_tvalid;
 wire forward_ex;
 assign forward_ex = es_ex || ms_handle_ex || ws_handle_ex;
 
-assign es_ready_go    = !es_div_block;
+assign es_ready_go    = !es_div_block && data_sram_addrok;
 assign es_allowin     = !es_valid || es_ready_go && ms_allowin;
 assign es_to_ms_valid =  es_valid && es_ready_go;
 always @(posedge clk) begin
@@ -287,8 +294,20 @@ assign es_alu_result = es_hi_re ? hi_rdata :
 
 assign es_mem_addr_low = es_alu_result[1:0];
 
-assign data_sram_en    = 1'b1;
-assign data_sram_wen   = forward_ex     ? 4'b0000 : 
+assign es_load_op = es_res_from_mem;
+assign es_store_op = es_mem_we;
+assign es_mem_inst = es_load_op || es_store_op;
+
+assign data_sram_req  = es_mem_inst && es_to_ms_valid && ms_allowin;
+assign data_sram_wr   = es_store_op ? 1'b1 : 1'b0;
+assign data_sram_size = ( es_lb_op || es_lbu_op || es_sb_op || 
+                         (es_lwl_op || es_swl_op) && es_mem_addr_low == 2'b00 || 
+                         (es_lwr_op || es_swr_op) && es_mem_addr_low == 2'b11 ) ? 2'd0 : 
+                        ( es_lh_op || es_lhu_op || es_sh_op || 
+                         (es_lwl_op || es_swl_op) && es_mem_addr_low == 2'b01 || 
+                         (es_lwr_op || es_swr_op) && es_mem_addr_low == 2'b10 ) ? 2'd1 : 
+                         2'd2;
+assign data_sram_wstrb = forward_ex ? 4'b0000 : 
                          es_mem_we && es_valid ? es_sb_op  ? (es_mem_addr_low == 2'b00) ? 4'b0001 : 
                                                              (es_mem_addr_low == 2'b01) ? 4'b0010 : 
                                                              (es_mem_addr_low == 2'b10) ? 4'b0100 : 
@@ -305,7 +324,7 @@ assign data_sram_wen   = forward_ex     ? 4'b0000 :
                                                                                           4'b1111 : 
                                                                                           4'b1111 : 
                                                                                           4'b0000 ;
-assign data_sram_addr  = {es_alu_result[31:2], 2'b00};
+assign data_sram_addr  = (es_lwl_op || es_swl_op) ? {es_alu_result[31:2], 2'b00} : es_alu_result;
 assign data_sram_wdata = es_sb_op  ? {4{es_rt_value[7:0]}} : 
                          es_sh_op  ? {2{es_rt_value[15:0]}} : 
                          es_swl_op ? (es_mem_addr_low == 2'b00) ? es_rt_value[31:24] : 

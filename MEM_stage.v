@@ -12,9 +12,10 @@ module mem_stage(
     //to ws
     output                         ms_to_ws_valid,
     output [`MS_TO_WS_BUS_WD -1:0] ms_to_ws_bus  ,
-    //from data-sram
+    //from data-sram-like
     input  [31                 :0] data_sram_rdata,
-    output reg ms_valid,
+    input                          data_sram_dataok   ,
+    //exception
     output ms_handle_ex,
     input ws_handle_ex
 );
@@ -43,6 +44,7 @@ wire        ms_gr_we;
 wire [ 4:0] ms_dest;
 wire [31:0] ms_alu_result;
 wire [31:0] ms_pc;
+wire        ms_load_op;
 assign {es_ex          ,  //160:160
         es_exccode     ,  //159:155
         ms_bd          ,  //154:154
@@ -87,7 +89,8 @@ assign ms_to_ws_bus = {ms_ex          ,  //154:154
                        ms_pc             //31:0
                       };
 
-assign ms_ready_go    = 1'b1;
+assign ms_load_op = ms_res_from_mem;
+assign ms_ready_go    = ms_load_op ? data_sram_dataok : 1'b1;
 assign ms_allowin     = !ms_valid || ms_ready_go && ws_allowin;
 assign ms_to_ws_valid = ms_valid && ms_ready_go;
 always @(posedge clk) begin
