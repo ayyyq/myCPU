@@ -21,10 +21,11 @@ module exe_stage(
     output [31:0] data_sram_wdata,
     input         data_sram_addrok,
     //exception
-    output reg es_valid,
     input ms_handle_ex,
     input ws_handle_ex,
-    input has_int
+    input has_int,
+    
+    output reg es_valid
 );
 
 wire        es_ready_go   ;
@@ -293,7 +294,6 @@ assign es_alu_result = es_hi_re ? hi_rdata :
                                   aluout;
 
 assign es_mem_addr_low = es_alu_result[1:0];
-
 assign es_load_op = es_res_from_mem;
 assign es_store_op = es_mem_we;
 assign es_mem_inst = es_load_op || es_store_op;

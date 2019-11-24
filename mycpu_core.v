@@ -49,11 +49,13 @@ wire [`MS_TO_WS_BUS_WD -1:0] ms_to_ws_bus;
 wire [`WS_TO_RF_BUS_WD -1:0] ws_to_rf_bus;
 wire [`BR_BUS_WD       -1:0] br_bus;
 wire es_valid;
+wire ms_valid;
 wire ws_valid;
 wire ms_handle_ex;
 wire ws_handle_ex;
 wire [31:0] ex_pc;
 wire has_int;
+wire ms_load_op;
 
 // IF stage
 if_stage if_stage(
@@ -93,7 +95,8 @@ id_stage id_stage(
     .es_valid       (es_valid       ),
     .es_to_ms_bus   (es_to_ms_bus   ),
     //from mem
-    .ms_valid       (ms_to_ws_valid ),
+    .ms_valid       (ms_valid       ),
+    .ms_load_op     (ms_load_op     ),
     .ms_to_ws_bus   (ms_to_ws_bus   ),
     //to es
     .ds_to_es_valid (ds_to_es_valid ),
@@ -126,10 +129,10 @@ exe_stage exe_stage(
     .data_sram_wstrb (data_sram_wstrb ),
     .data_sram_wdata (data_sram_wdata ),
     .data_sram_addrok(data_sram_addrok),
-    .es_valid        (es_valid        ),
     .ms_handle_ex    (ms_handle_ex    ),
     .ws_handle_ex    (ws_handle_ex    ),
-    .has_int         (has_int         )
+    .has_int         (has_int         ),
+    .es_valid        (es_valid        )
 );
 // MEM stage
 mem_stage mem_stage(
@@ -144,6 +147,9 @@ mem_stage mem_stage(
     //to ws
     .ms_to_ws_valid  (ms_to_ws_valid  ),
     .ms_to_ws_bus    (ms_to_ws_bus    ),
+    //to ds
+    .ms_valid        (ms_valid        ),
+    .ms_load_op      (ms_load_op      ),
     //from data-sram
     .data_sram_rdata (data_sram_rdata ),
     .data_sram_dataok(data_sram_dataok),

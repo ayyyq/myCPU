@@ -12,6 +12,9 @@ module mem_stage(
     //to ws
     output                         ms_to_ws_valid,
     output [`MS_TO_WS_BUS_WD -1:0] ms_to_ws_bus  ,
+    //to ds
+    output reg                    ms_valid      ,
+    output                         ms_load_op    ,
     //from data-sram-like
     input  [31                 :0] data_sram_rdata,
     input                          data_sram_dataok,
@@ -20,7 +23,6 @@ module mem_stage(
     input ws_handle_ex
 );
 
-reg         ms_valid;
 wire        ms_ready_go;
 
 reg [`ES_TO_MS_BUS_WD -1:0] es_to_ms_bus_r;
@@ -45,7 +47,6 @@ wire        ms_gr_we;
 wire [ 4:0] ms_dest;
 wire [31:0] ms_alu_result;
 wire [31:0] ms_pc;
-wire        ms_load_op;
 assign {es_ex          ,  //160:160
         es_exccode     ,  //159:155
         ms_bd          ,  //154:154
@@ -90,8 +91,18 @@ assign ms_to_ws_bus = {ms_ex          ,  //154:154
                        ms_pc             //31:0
                       };
 
-assign ms_load_op = ms_res_from_mem;
-assign ms_ready_go    = ms_load_op ? data_sram_dataok : 1'b1;
+reg ms_ready_go_r;
+always @(posedge clk) begin
+    if (reset)
+        ms_ready_go_r <= 1'b0;
+    else if (data_sram_dataok)
+        ms_ready_go_r <= 1'b1;
+    else if (ws_allowin)
+        ms_ready_go_r <= 1'b0;
+end
+
+assign ms_load_op     = ms_res_from_mem;
+assign ms_ready_go    = !ms_load_op || ms_ready_go_r;
 assign ms_allowin     = !ms_valid || ms_ready_go && ws_allowin;
 assign ms_to_ws_valid = ms_valid && ms_ready_go;
 always @(posedge clk) begin
@@ -110,8 +121,8 @@ always @(posedge clk) begin
 end
 
 //buffer
-reg buf_rdata_valid;
-reg [31:0] buf_rdata;
+reg  buf_rdata_valid;
+reg  [31:0] buf_rdata;
 wire [31:0] true_rdata;
 
 assign true_rdata = buf_rdata_valid ? buf_rdata : data_sram_rdata;
@@ -121,9 +132,9 @@ always @(posedge clk) begin
     else if (ws_allowin)
         buf_rdata_valid <= 1'b0;
     else if (!buf_rdata_valid)
-        buf_rdata_valid <= 1'b1;
+        buf_rdata_valid <= data_sram_dataok;
     
-    if (!buf_rdata_valid)
+    if (!buf_rdata_valid && data_sram_dataok)
         buf_rdata <= data_sram_rdata;
 end
 
