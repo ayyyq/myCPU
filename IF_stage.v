@@ -85,6 +85,8 @@ assign true_npc = buf_npc_valid ? buf_npc : nextpc;
 always @(posedge clk)begin
     if (reset)
         buf_npc_valid <= 1'b0;
+    else if (ws_handle_ex)
+        buf_npc_valid <= 1'b0;
     else if (to_fs_valid && fs_allowin)
         buf_npc_valid <= 1'b0;
     else if (!buf_npc_valid)
@@ -99,12 +101,12 @@ reg fs_ready_go_r;
 always @(posedge clk) begin
     if (reset)
         fs_ready_go_r <= 1'b0;
-    else if (inst_sram_dataok)
+    else if (fs_ready_go && !ds_allowin)
         fs_ready_go_r <= 1'b1;
     else if (ds_allowin)
         fs_ready_go_r <= 1'b0;
 end
-assign fs_ready_go    = fs_ready_go_r; //表示IF级拿到指令可以传递到ID级了
+assign fs_ready_go    = inst_sram_dataok || fs_ready_go_r; //表示IF级拿到指令可以传递到ID级了
 assign fs_allowin     = !fs_valid || fs_ready_go && ds_allowin;
 assign fs_to_ds_valid =  fs_valid && fs_ready_go;
 always @(posedge clk) begin

@@ -266,7 +266,7 @@ assign remainder = es_div_op ? (dout[31:0] ^ {32{es_alu_src1[31]}}) + es_alu_src
                                dout[31:0];
 
 always @(posedge clk) begin
-    if (forward_ex)
+    if (!es_valid || forward_ex)
         hi <= hi;
     else if (es_mul_op || es_mulu_op)
         hi <= pout[63:32];
@@ -276,7 +276,7 @@ always @(posedge clk) begin
         hi <= es_alu_src1;
 end
 always @(posedge clk) begin
-    if (forward_ex)
+    if (!es_valid || forward_ex)
         lo <= lo;
     else if (es_mul_op || es_mulu_op)
         lo <= pout[31:0];
@@ -298,7 +298,7 @@ assign es_load_op = es_res_from_mem;
 assign es_store_op = es_mem_we;
 assign es_mem_inst = es_load_op || es_store_op;
 
-assign data_sram_req  = es_mem_inst && es_to_ms_valid && ms_allowin;
+assign data_sram_req  = es_valid && es_mem_inst && es_to_ms_valid && ms_allowin;
 assign data_sram_wr   = es_store_op ? 1'b1 : 1'b0;
 assign data_sram_size = ( es_lb_op || es_lbu_op || es_sb_op || 
                          (es_lwl_op || es_swl_op) && es_mem_addr_low == 2'b00 || 
