@@ -60,20 +60,20 @@ assign seq_pc       = fs_pc + 3'h4;
 assign nextpc       = br_taken ? br_target : seq_pc; 
 
 //buffer
-reg         buf_valid;
+reg         buf_npc_valid;
 reg  [31:0] buf_npc;
 wire [31:0] true_npc;
 
-assign true_npc = buf_valid ? buf_npc : nextpc;
+assign true_npc = buf_npc_valid ? buf_npc : nextpc;
 always @(posedge clk)begin
     if(reset)
-        buf_valid <= 1'b0;
+        buf_npc_valid <= 1'b0;
     else if(to_fs_valid && fs_allowin)
-        buf_valid <= 1'b0;
-    else if(!buf_valid)
-        buf_valid <= 1'b1;
+        buf_npc_valid <= 1'b0;
+    else if(!buf_npc_valid)
+        buf_npc_valid <= 1'b1;
      
-     if(!buf_valid)
+     if(!buf_npc_valid)
         buf_npc <=  nextpc;
 end
 
@@ -101,6 +101,21 @@ always @(posedge clk) begin
     end
 end
 
+//buffer
+reg buf_rdata_valid;
+reg [31:0] buf_rdata;
+always @(posedge clk) begin
+    if (reset)
+        buf_rdata_valid <= 1'b0;
+    else if (ds_allowin)
+        buf_rdata_valid <= 1'b0;
+    else if (!buf_rdata_valid)
+        buf_rdata_valid <= 1'b1;
+    
+    if (!buf_rdata_valid)
+        buf_rdata <= inst_sram_rdata;
+end
+
 //exception
 wire ex_adel;
 assign ex_adel = fs_pc[1:0] != 2'b00;
@@ -119,6 +134,6 @@ assign inst_sram_addr  = true_npc;
 assign inst_sram_wstrb = 4'h0; //wen
 assign inst_sram_wdata = 32'd0;
 
-assign fs_inst         = inst_sram_rdata;
+assign fs_inst         = buf_rdata_valid ? buf_rdata : inst_sram_rdata;
 
 endmodule
