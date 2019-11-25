@@ -14,6 +14,7 @@ module id_stage(
     input  [`ES_TO_MS_BUS_WD -1:0] es_to_ms_bus  ,
     //from mem
     input                          ms_valid      ,
+    input                          ms_load_op    ,
     input  [`MS_TO_WS_BUS_WD -1:0] ms_to_ws_bus  ,
     //to es
     output                         ds_to_es_valid,
@@ -264,7 +265,8 @@ assign ms_dest = ms_to_ws_bus[68:64];
 assign ms_final_result = ms_to_ws_bus[63:32];
 
 wire load_block;
-assign load_block = es_valid && es_load_op && es_dest != 5'b0 && (es_dest == rs || es_dest == rt);
+assign load_block = es_valid && es_load_op && es_dest != 5'b0 && (es_dest == rs || es_dest == rt)
+                 || ms_valid && ms_load_op && ms_dest != 5'b0 && (ms_dest == rs || ms_dest == rt);
 wire mfc0_block;
 assign mfc0_block = es_valid && es_mfc0_op && es_dest != 5'b0 && (es_dest == rs || es_dest == rt)
                  || ms_valid && ms_mfc0_op && ms_dest != 5'b0 && (ms_dest == rs || ms_dest == rt);
@@ -469,7 +471,7 @@ assign rs_eq_rt = (rs_value == rt_value);
 assign rs_eq_zero = (rs_value == 32'b0);
 assign rs_lt_zero = (rs_value[31] == 1'b1);
 
-assign br_op = ds_valid && 
+assign br_op = ds_to_es_valid && 
               (inst_beq    | inst_bne | 
                inst_bgez   | inst_bgtz   | inst_blez | inst_bltz | 
                inst_bgezal | inst_bltzal | 
@@ -486,7 +488,7 @@ assign br_taken = (   inst_beq    &&  rs_eq_rt
                    || inst_jal 
                    || inst_jr
                    || inst_jalr
-                  ) && ds_valid;
+                  ) && ds_to_es_valid;
 assign br_target = (inst_beq || inst_bne || inst_bgez || inst_bgtz || inst_blez || inst_bltz || inst_bgezal || inst_bltzal) ? (fs_pc + {{14{imm[15]}}, imm[15:0], 2'b0}) :
                    (inst_jr || inst_jalr) ?  rs_value :
                    /*(inst_jal || inst_j)*/  {fs_pc[31:28], jidx[25:0], 2'b0};

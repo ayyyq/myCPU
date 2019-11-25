@@ -33,12 +33,15 @@ wire        to_fs_valid;
 wire [31:0] seq_pc;
 wire [31:0] nextpc;
 
-wire         br_op;
-wire         br_taken;
-wire [ 31:0] br_target;
+wire        br_op;
+wire        br_taken;
+wire [31:0] br_target;
+reg         br_bus_valid;
+reg  [33:0] br_bus_r;
+wire [33:0] true_br_bus;
 assign {br_op    ,
         br_taken ,
-        br_target} = br_bus;
+        br_target} = true_br_bus;
 
 wire        fs_ex;
 wire [ 4:0] fs_exccode;
@@ -55,45 +58,56 @@ assign fs_to_ds_bus = {fs_ex      ,  //102:102
                       };
 
 // pre-IF stage
-wire pfs_ready_go;
-assign pfs_ready_go = inst_sram_addrok;
-assign to_fs_valid  = ~reset && pfs_ready_go;
+assign to_fs_valid  = ~reset && inst_sram_addrok; //表示有数据需要在下一拍传给IF级
 assign seq_pc       = fs_pc + 3'h4;
-assign nextpc       = br_taken  ? br_target : seq_pc; 
+assign nextpc       = br_taken ? br_target : seq_pc; 
 
-            //buffer
-reg             buf_valid;
-reg [31:0]      buf_npc;
-wire [31:0]      true_npc;
+//buffer
+reg         buf_npc_valid;
+reg  [31:0] buf_npc;
+wire [31:0] true_npc;
 
-assign true_npc = buf_valid ? buf_npc : nextpc;
-always @(posedge clk)begin
-    if(reset)
-        buf_valid <= 1'b0;
-    else if(to_fs_valid && fs_allowin)
-        buf_valid <= 1'b0;
-    else if(!buf_valid)
-        buf_valid <= 1'b1;
-     
-     if(!buf_valid)
-        buf_npc <=  nextpc;
-end       
-
-
-reg  buf_inst_req;
+assign true_br_bus = br_bus_valid ? br_bus_r : br_bus;
 always @(posedge clk) begin
-    if(reset)
-        buf_inst_req <= 1'b0;
-    else if(to_fs_valid && fs_allowin)
-        buf_inst_req <= 1;
+    if (reset)
+        br_bus_valid <= 1'b0;
+    else if (ws_handle_ex)
+        br_bus_valid <= 1'b0;
+    else if (br_op && !(fs_valid && fs_allowin))
+        br_bus_valid <= 1'b1;
+    else if (fs_allowin)
+        br_bus_valid <= 1'b0;
+    
+    if (!br_bus_valid)
+        br_bus_r <= br_bus;
 end
-assign inst_sram_req   =   !buf_inst_req && to_fs_valid && fs_allowin;
-assign inst_sram_wr    =   1'h0;
-assign inst_sram_size  =   2'd3;
-assign inst_sram_addr  =   true_npc;
+
+assign true_npc = buf_npc_valid ? buf_npc : nextpc;
+always @(posedge clk)begin
+    if (reset)
+        buf_npc_valid <= 1'b0;
+    else if (ws_handle_ex)
+        buf_npc_valid <= 1'b0;
+    else if (to_fs_valid && fs_allowin)
+        buf_npc_valid <= 1'b0;
+    else if (!buf_npc_valid)
+        buf_npc_valid <= 1'b1;
+     
+    if (!buf_npc_valid)
+        buf_npc <=  nextpc;
+end
 
 // IF stage
-assign fs_ready_go    = inst_sram_dataok;
+reg fs_ready_go_r;
+always @(posedge clk) begin
+    if (reset)
+        fs_ready_go_r <= 1'b0;
+    else if (fs_ready_go && !ds_allowin)
+        fs_ready_go_r <= 1'b1;
+    else if (ds_allowin)
+        fs_ready_go_r <= 1'b0;
+end
+assign fs_ready_go    = inst_sram_dataok || fs_ready_go_r; //表示IF级拿到指令可以传递到ID级了
 assign fs_allowin     = !fs_valid || fs_ready_go && ds_allowin;
 assign fs_to_ds_valid =  fs_valid && fs_ready_go;
 always @(posedge clk) begin
@@ -112,8 +126,23 @@ always @(posedge clk) begin
     else if (ws_handle_ex)
         fs_pc <= ex_pc - 3'h4;
     else if (to_fs_valid && fs_allowin) begin
-        fs_pc <= nextpc;
+        fs_pc <= true_npc;
     end
+end
+
+//buffer
+reg buf_rdata_valid;
+reg [31:0] buf_rdata;
+always @(posedge clk) begin
+    if (reset)
+        buf_rdata_valid <= 1'b0;
+    else if (ds_allowin)
+        buf_rdata_valid <= 1'b0;
+    else if (!buf_rdata_valid)
+        buf_rdata_valid <= inst_sram_dataok;
+    
+    if (!buf_rdata_valid && inst_sram_dataok)
+        buf_rdata <= inst_sram_rdata;
 end
 
 //exception
@@ -122,21 +151,29 @@ assign ex_adel = fs_pc[1:0] != 2'b00;
 
 assign fs_ex = fs_valid && ex_adel;
 assign fs_exccode = ex_adel ? `EX_ADEL : 5'h00;
+
+reg br_op_r;
+always @(posedge clk) begin
+    if (reset)
+        br_op_r <= 1'b0;
+    else if (to_fs_valid && fs_allowin)
+        br_op_r <= 1'b0;
+    else if (br_op)
+        br_op_r <= 1'b1;
+end
 assign fs_bd = br_op;
 assign fs_badvaddr = fs_pc;
 
-/*
-assign inst_sram_en    = to_fs_valid && fs_allowin;
-assign inst_sram_wen   = 4'h0;
-assign inst_sram_addr  = nextpc;
-assign inst_sram_wdata = 32'b0;
-*/
+//assign inst_sram_en    = to_fs_valid && fs_allowin;
+//assign inst_sram_wen   = 4'h0;
+//当IF级allowin时，preIF级才发req
+assign inst_sram_req   = to_fs_valid && fs_allowin; //en
+assign inst_sram_wr    = 1'h0; //wen
+assign inst_sram_size  = 2'd2;
+assign inst_sram_addr  = true_npc;
+assign inst_sram_wstrb = 4'h0; //wen
+assign inst_sram_wdata = 32'd0;
 
-
-
-assign fs_inst         = inst_sram_rdata;
-
-
-
+assign fs_inst         = buf_rdata_valid ? buf_rdata : inst_sram_rdata;
 
 endmodule

@@ -12,11 +12,13 @@ module mem_stage(
     //to ws
     output                         ms_to_ws_valid,
     output [`MS_TO_WS_BUS_WD -1:0] ms_to_ws_bus  ,
+    //to ds
+    output reg                    ms_valid      ,
+    output                         ms_load_op    ,
     //from data-sram-like
     input  [31                 :0] data_sram_rdata,
-    input                          data_sram_ok   ,
+    input                          data_sram_dataok,
     //exception
-    output reg ms_valid,
     output ms_handle_ex,
     input ws_handle_ex
 );
@@ -45,9 +47,7 @@ wire        ms_gr_we;
 wire [ 4:0] ms_dest;
 wire [31:0] ms_alu_result;
 wire [31:0] ms_pc;
-wire        ms_load_inst;
-assign {ms_load_inst   ,  //161:161
-        es_ex          ,  //160:160
+assign {es_ex          ,  //160:160
         es_exccode     ,  //159:155
         ms_bd          ,  //154:154
         ms_badvaddr    ,  //153:122
@@ -91,7 +91,17 @@ assign ms_to_ws_bus = {ms_ex          ,  //154:154
                        ms_pc             //31:0
                       };
 
-assign ms_ready_go    = ms_load_inst ? data_sram_dataok : 1'b1;
+reg ms_ready_go_r;
+always @(posedge clk) begin
+    if (reset)
+        ms_ready_go_r <= 1'b0;
+    else if (ms_ready_go && !ws_allowin)
+        ms_ready_go_r <= 1'b1;
+    else if (ws_allowin)
+        ms_ready_go_r <= 1'b0;
+end
+assign ms_load_op     = ms_res_from_mem;
+assign ms_ready_go    = !ms_load_op || data_sram_dataok || ms_ready_go_r;
 assign ms_allowin     = !ms_valid || ms_ready_go && ws_allowin;
 assign ms_to_ws_valid = ms_valid && ms_ready_go;
 always @(posedge clk) begin
@@ -109,27 +119,45 @@ always @(posedge clk) begin
     end
 end
 
-assign mem_result = ms_lb_op  ? (ms_mem_addr_low == 2'b00) ? {{24{data_sram_rdata[7]}}, data_sram_rdata[7:0]} : 
-                                (ms_mem_addr_low == 2'b01) ? {{24{data_sram_rdata[15]}}, data_sram_rdata[15:8]} : 
-                                (ms_mem_addr_low == 2'b10) ? {{24{data_sram_rdata[23]}}, data_sram_rdata[23:16]} : 
-                                                             {{24{data_sram_rdata[31]}}, data_sram_rdata[31:24]} : 
-                    ms_lbu_op ? (ms_mem_addr_low == 2'b00) ? data_sram_rdata[7:0] : 
-                                (ms_mem_addr_low == 2'b01) ? data_sram_rdata[15:8] : 
-                                (ms_mem_addr_low == 2'b10) ? data_sram_rdata[23:16] : 
-                                                             data_sram_rdata[31:24] : 
-                    ms_lh_op  ? (ms_mem_addr_low == 2'b00) ? {{16{data_sram_rdata[15]}}, data_sram_rdata[15:0]} : 
-                                                             {{16{data_sram_rdata[31]}}, data_sram_rdata[31:16]} : 
-                    ms_lhu_op ? (ms_mem_addr_low == 2'b00) ? data_sram_rdata[15:0] : 
-                                                             data_sram_rdata[31:16] : 
-                    ms_lwl_op ? (ms_mem_addr_low == 2'b00) ? {data_sram_rdata[7:0], 24'b0} : 
-                                (ms_mem_addr_low == 2'b01) ? {data_sram_rdata[15:0], 16'b0} : 
-                                (ms_mem_addr_low == 2'b10) ? {data_sram_rdata[23:0], 8'b0} : 
-                                                             data_sram_rdata : 
-                    ms_lwr_op ? (ms_mem_addr_low == 2'b11) ? data_sram_rdata[31:24] : 
-                                (ms_mem_addr_low == 2'b10) ? data_sram_rdata[31:16] : 
-                                (ms_mem_addr_low == 2'b01) ? data_sram_rdata[31:8] : 
-                                                             data_sram_rdata : 
-                                                             data_sram_rdata;
+//buffer
+reg  buf_rdata_valid;
+reg  [31:0] buf_rdata;
+wire [31:0] true_rdata;
+
+assign true_rdata = buf_rdata_valid ? buf_rdata : data_sram_rdata;
+always @(posedge clk) begin
+    if (reset)
+        buf_rdata_valid <= 1'b0;
+    else if (ws_allowin)
+        buf_rdata_valid <= 1'b0;
+    else if (!buf_rdata_valid)
+        buf_rdata_valid <= data_sram_dataok;
+    
+    if (!buf_rdata_valid && data_sram_dataok)
+        buf_rdata <= data_sram_rdata;
+end
+
+assign mem_result = ms_lb_op  ? (ms_mem_addr_low == 2'b00) ? {{24{true_rdata[7]}}, true_rdata[7:0]} : 
+                                (ms_mem_addr_low == 2'b01) ? {{24{true_rdata[15]}}, true_rdata[15:8]} : 
+                                (ms_mem_addr_low == 2'b10) ? {{24{true_rdata[23]}}, true_rdata[23:16]} : 
+                                                             {{24{true_rdata[31]}}, true_rdata[31:24]} : 
+                    ms_lbu_op ? (ms_mem_addr_low == 2'b00) ? true_rdata[7:0] : 
+                                (ms_mem_addr_low == 2'b01) ? true_rdata[15:8] : 
+                                (ms_mem_addr_low == 2'b10) ? true_rdata[23:16] : 
+                                                             true_rdata[31:24] : 
+                    ms_lh_op  ? (ms_mem_addr_low == 2'b00) ? {{16{true_rdata[15]}}, true_rdata[15:0]} : 
+                                                             {{16{true_rdata[31]}}, true_rdata[31:16]} : 
+                    ms_lhu_op ? (ms_mem_addr_low == 2'b00) ? true_rdata[15:0] : 
+                                                             true_rdata[31:16] : 
+                    ms_lwl_op ? (ms_mem_addr_low == 2'b00) ? {true_rdata[7:0], 24'b0} : 
+                                (ms_mem_addr_low == 2'b01) ? {true_rdata[15:0], 16'b0} : 
+                                (ms_mem_addr_low == 2'b10) ? {true_rdata[23:0], 8'b0} : 
+                                                             true_rdata : 
+                    ms_lwr_op ? (ms_mem_addr_low == 2'b11) ? true_rdata[31:24] : 
+                                (ms_mem_addr_low == 2'b10) ? true_rdata[31:16] : 
+                                (ms_mem_addr_low == 2'b01) ? true_rdata[31:8] : 
+                                                             true_rdata : 
+                                                             true_rdata;
 
 assign ms_rf_we = ms_lwl_op ? (ms_mem_addr_low == 2'b00) ? 4'b1000 : 
                               (ms_mem_addr_low == 2'b01) ? 4'b1100 : 

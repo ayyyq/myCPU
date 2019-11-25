@@ -21,10 +21,11 @@ module exe_stage(
     output [31:0] data_sram_wdata,
     input         data_sram_addrok,
     //exception
-    output reg es_valid,
     input ms_handle_ex,
     input ws_handle_ex,
-    input has_int
+    input has_int,
+    
+    output reg es_valid
 );
 
 wire        es_ready_go   ;
@@ -149,17 +150,13 @@ wire [31:0] es_cp0_wdata;
 wire        es_res_from_cp0;
 wire        es_res_from_mem;
 wire [ 1:0] es_mem_addr_low;
-wire        es_load_inst;
-wire        es_store_inst;
+wire        es_load_op;
+wire        es_store_op;
 wire        es_mem_inst;
 
-assign es_load_inst = es_res_from_mem;
-assign es_store_inst = es_mem_we;
-assign es_mem_inst = es_load_inst || es_store_inst;
 assign es_res_from_cp0 = es_mfc0_op;
 assign es_res_from_mem = es_lb_op | es_lbu_op | es_lh_op | es_lhu_op | es_lw_op | es_lwl_op | es_lwr_op;
-assign es_to_ms_bus = {es_load_inst   ,  //161:161
-                       es_ex          ,  //160:160
+assign es_to_ms_bus = {es_ex          ,  //160:160
                        es_exccode     ,  //159:155
                        es_bd          ,  //154:154
                        es_badvaddr    ,  //153:122
@@ -269,7 +266,7 @@ assign remainder = es_div_op ? (dout[31:0] ^ {32{es_alu_src1[31]}}) + es_alu_src
                                dout[31:0];
 
 always @(posedge clk) begin
-    if (forward_ex)
+    if (!es_valid || forward_ex)
         hi <= hi;
     else if (es_mul_op || es_mulu_op)
         hi <= pout[63:32];
@@ -279,7 +276,7 @@ always @(posedge clk) begin
         hi <= es_alu_src1;
 end
 always @(posedge clk) begin
-    if (forward_ex)
+    if (!es_valid || forward_ex)
         lo <= lo;
     else if (es_mul_op || es_mulu_op)
         lo <= pout[31:0];
@@ -297,42 +294,37 @@ assign es_alu_result = es_hi_re ? hi_rdata :
                                   aluout;
 
 assign es_mem_addr_low = es_alu_result[1:0];
+assign es_load_op = es_res_from_mem;
+assign es_store_op = es_mem_we;
+assign es_mem_inst = es_load_op || es_store_op;
 
-
-assign data_sram_wr    =   es_store_inst ? 1'b1 :
-                      es_load_inst  ? 1'b0 :
-                                      1'b0;
-reg  buf_data_req;
-always @(posedge clk) begin
-    if(reset)
-        buf_data_req <= 1'b0;
-    else if(es_to_ms_valid && ms_allowin && es_mem_inst)
-        buf_data_req <= 1;
-end
-assign data_sram_req   =   !buf_data_req && es_to_ms_valid && ms_allowin && es_mem_inst;
-
-assign data_sram_size = ((es_lb_op | es_lbu_op | es_sb_op) || (es_lwl_op | es_swl_op && es_mem_addr_low == 2'b00) || (es_lwr_op | es_swr_op && es_mem_addr_low == 2'b11)) ? 2'd0 :
-                   ((es_lh_op | es_lhu_op | es_sh_op) || (es_lwl_op | es_swl_op && es_mem_addr_low == 2'b01) || (es_lwr_op | es_swr_op && es_mem_addr_low == 2'b01)) ? 2'd1 :
-                    2'd2 ;      
-assign data_sram_wtsrb   =  forward_ex ? 4'b0000 : 
-                                             es_mem_we && es_valid ? es_sb_op  ? (es_mem_addr_low == 2'b00) ? 4'b0001 : 
-                                                                                 (es_mem_addr_low == 2'b01) ? 4'b0010 : 
-                                                                                 (es_mem_addr_low == 2'b10) ? 4'b0100 : 
-                                                                                                              4'b1000 : 
-                                                                     es_sh_op  ? (es_mem_addr_low == 2'b00) ? 4'b0011 : 
-                                                                                                              4'b1100 : 
-                                                                     es_swl_op ? (es_mem_addr_low == 2'b00) ? 4'b0001 : 
-                                                                                 (es_mem_addr_low == 2'b01) ? 4'b0011 : 
-                                                                                 (es_mem_addr_low == 2'b10) ? 4'b0111 : 
-                                                                                                              4'b1111 : 
-                                                                     es_swr_op ? (es_mem_addr_low == 2'b11) ? 4'b1000 : 
-                                                                                 (es_mem_addr_low == 2'b10) ? 4'b1100 : 
-                                                                                 (es_mem_addr_low == 2'b01) ? 4'b1110 : 
-                                                                                                              4'b1111 : 
-                                                                                                              4'b1111 : 
-                                                                                                              4'b0000 ;                                       
-
-assign data_sram_addr  = (es_lwl_op | es_swl_op) ? {es_alu_result[31:2], 2'b00} : es_alu_result;
+assign data_sram_req  = es_valid && es_mem_inst && es_to_ms_valid && ms_allowin;
+assign data_sram_wr   = es_store_op ? 1'b1 : 1'b0;
+assign data_sram_size = ( es_lb_op || es_lbu_op || es_sb_op || 
+                         (es_lwl_op || es_swl_op) && es_mem_addr_low == 2'b00 || 
+                         (es_lwr_op || es_swr_op) && es_mem_addr_low == 2'b11 ) ? 2'd0 : 
+                        ( es_lh_op || es_lhu_op || es_sh_op || 
+                         (es_lwl_op || es_swl_op) && es_mem_addr_low == 2'b01 || 
+                         (es_lwr_op || es_swr_op) && es_mem_addr_low == 2'b10 ) ? 2'd1 : 
+                         2'd2;
+assign data_sram_wstrb = forward_ex ? 4'b0000 : 
+                         es_mem_we && es_valid ? es_sb_op  ? (es_mem_addr_low == 2'b00) ? 4'b0001 : 
+                                                             (es_mem_addr_low == 2'b01) ? 4'b0010 : 
+                                                             (es_mem_addr_low == 2'b10) ? 4'b0100 : 
+                                                                                          4'b1000 : 
+                                                 es_sh_op  ? (es_mem_addr_low == 2'b00) ? 4'b0011 : 
+                                                                                          4'b1100 : 
+                                                 es_swl_op ? (es_mem_addr_low == 2'b00) ? 4'b0001 : 
+                                                             (es_mem_addr_low == 2'b01) ? 4'b0011 : 
+                                                             (es_mem_addr_low == 2'b10) ? 4'b0111 : 
+                                                                                          4'b1111 : 
+                                                 es_swr_op ? (es_mem_addr_low == 2'b11) ? 4'b1000 : 
+                                                             (es_mem_addr_low == 2'b10) ? 4'b1100 : 
+                                                             (es_mem_addr_low == 2'b01) ? 4'b1110 : 
+                                                                                          4'b1111 : 
+                                                                                          4'b1111 : 
+                                                                                          4'b0000 ;
+assign data_sram_addr  = (es_lwl_op || es_swl_op) ? {es_alu_result[31:2], 2'b00} : es_alu_result;
 assign data_sram_wdata = es_sb_op  ? {4{es_rt_value[7:0]}} : 
                          es_sh_op  ? {2{es_rt_value[15:0]}} : 
                          es_swl_op ? (es_mem_addr_low == 2'b00) ? es_rt_value[31:24] : 
