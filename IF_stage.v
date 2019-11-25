@@ -71,6 +71,8 @@ assign true_br_bus = buf_br_valid ? br_bus_r : br_bus;
 always @(posedge clk) begin
     if (reset)
         buf_br_valid <= 1'b0;
+    else if (ws_handle_ex)
+        buf_br_valid <= 1'b0;
     else if (br_taken && !(to_fs_valid && fs_allowin) && buf_npc_valid) begin//如果有效转移地址没有发出请求也没有被记下来，就保持住br_bus
         buf_br_valid <= 1'b1;
     end
