@@ -33,10 +33,10 @@ wire        to_fs_valid;
 wire [31:0] seq_pc;
 wire [31:0] nextpc;
 
-wire         br_op;
-wire         br_taken;
-wire [ 31:0] br_target;
-reg         buf_br_valid;
+wire        br_op;
+wire        br_taken;
+wire [31:0] br_target;
+reg         br_bus_valid;
 reg  [33:0] br_bus_r;
 wire [33:0] true_br_bus;
 assign {br_op    ,
@@ -67,19 +67,18 @@ reg         buf_npc_valid;
 reg  [31:0] buf_npc;
 wire [31:0] true_npc;
 
-assign true_br_bus = buf_br_valid ? br_bus_r : br_bus;
+assign true_br_bus = br_bus_valid ? br_bus_r : br_bus;
 always @(posedge clk) begin
     if (reset)
-        buf_br_valid <= 1'b0;
+        br_bus_valid <= 1'b0;
     else if (ws_handle_ex)
-        buf_br_valid <= 1'b0;
-    else if (br_taken && !(to_fs_valid && fs_allowin) && buf_npc_valid) begin//如果有效转移地址没有发出请求也没有被记下来，就保持住br_bus
-        buf_br_valid <= 1'b1;
-    end
-    else if (!buf_npc_valid)
-        buf_br_valid <= 1'b0;
+        br_bus_valid <= 1'b0;
+    else if (br_op && !(fs_valid && fs_allowin))
+        br_bus_valid <= 1'b1;
+    else if (fs_allowin)
+        br_bus_valid <= 1'b0;
     
-    if (!buf_br_valid)
+    if (!br_bus_valid)
         br_bus_r <= br_bus;
 end
 
@@ -152,6 +151,16 @@ assign ex_adel = fs_pc[1:0] != 2'b00;
 
 assign fs_ex = fs_valid && ex_adel;
 assign fs_exccode = ex_adel ? `EX_ADEL : 5'h00;
+
+reg br_op_r;
+always @(posedge clk) begin
+    if (reset)
+        br_op_r <= 1'b0;
+    else if (to_fs_valid && fs_allowin)
+        br_op_r <= 1'b0;
+    else if (br_op)
+        br_op_r <= 1'b1;
+end
 assign fs_bd = br_op;
 assign fs_badvaddr = fs_pc;
 
