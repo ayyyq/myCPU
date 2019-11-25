@@ -151,16 +151,6 @@ assign ex_adel = fs_pc[1:0] != 2'b00;
 
 assign fs_ex = fs_valid && ex_adel;
 assign fs_exccode = ex_adel ? `EX_ADEL : 5'h00;
-
-reg br_op_r;
-always @(posedge clk) begin
-    if (reset)
-        br_op_r <= 1'b0;
-    else if (to_fs_valid && fs_allowin)
-        br_op_r <= 1'b0;
-    else if (br_op)
-        br_op_r <= 1'b1;
-end
 assign fs_bd = br_op;
 assign fs_badvaddr = fs_pc;
 
