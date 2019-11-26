@@ -471,11 +471,11 @@ assign rs_eq_rt = (rs_value == rt_value);
 assign rs_eq_zero = (rs_value == 32'b0);
 assign rs_lt_zero = (rs_value[31] == 1'b1);
 
-assign br_op = ds_to_es_valid && 
-              (inst_beq    | inst_bne | 
-               inst_bgez   | inst_bgtz   | inst_blez | inst_bltz | 
-               inst_bgezal | inst_bltzal | 
-               inst_j      | inst_jal    | inst_jr   | inst_jalr);
+assign br_op = (inst_beq    | inst_bne | 
+                inst_bgez   | inst_bgtz   | inst_blez | inst_bltz | 
+                inst_bgezal | inst_bltzal | 
+                inst_j      | inst_jal    | inst_jr   | inst_jalr
+               ) && ds_to_es_valid;
 assign br_taken = (   inst_beq    &&  rs_eq_rt
                    || inst_bne    && !rs_eq_rt
                    || inst_bgez   && !rs_lt_zero
