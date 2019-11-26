@@ -32,6 +32,9 @@ wire        to_fs_valid;
 
 wire [31:0] seq_pc;
 wire [31:0] nextpc;
+reg         buf_npc_valid;
+reg  [31:0] buf_npc;
+wire [31:0] true_npc;
 
 wire        br_op;
 wire        br_taken;
@@ -42,6 +45,22 @@ wire [33:0] true_br_bus;
 assign {br_op    ,
         br_taken ,
         br_target} = true_br_bus;
+
+//buffer
+assign true_br_bus = br_bus_valid ? br_bus_r : br_bus;
+always @(posedge clk) begin
+    if (reset)
+        br_bus_valid <= 1'b0;
+    else if (ws_handle_ex)
+        br_bus_valid <= 1'b0;
+    else if (br_op && !(fs_valid && fs_allowin))
+        br_bus_valid <= 1'b1;
+    else if (fs_allowin)
+        br_bus_valid <= 1'b0;
+    
+    if (!br_bus_valid)
+        br_bus_r <= br_bus;
+end
 
 wire        fs_ex;
 wire [ 4:0] fs_exccode;
@@ -63,25 +82,6 @@ assign seq_pc       = fs_pc + 3'h4;
 assign nextpc       = br_taken ? br_target : seq_pc; 
 
 //buffer
-reg         buf_npc_valid;
-reg  [31:0] buf_npc;
-wire [31:0] true_npc;
-
-assign true_br_bus = br_bus_valid ? br_bus_r : br_bus;
-always @(posedge clk) begin
-    if (reset)
-        br_bus_valid <= 1'b0;
-    else if (ws_handle_ex)
-        br_bus_valid <= 1'b0;
-    else if (br_op && !(fs_valid && fs_allowin))
-        br_bus_valid <= 1'b1;
-    else if (fs_allowin)
-        br_bus_valid <= 1'b0;
-    
-    if (!br_bus_valid)
-        br_bus_r <= br_bus;
-end
-
 assign true_npc = buf_npc_valid ? buf_npc : nextpc;
 always @(posedge clk)begin
     if (reset)
@@ -154,8 +154,6 @@ assign fs_exccode = ex_adel ? `EX_ADEL : 5'h00;
 assign fs_bd = br_op;
 assign fs_badvaddr = fs_pc;
 
-//assign inst_sram_en    = to_fs_valid && fs_allowin;
-//assign inst_sram_wen   = 4'h0;
 //当IF级allowin时，preIF级才发req
 assign inst_sram_req   = to_fs_valid && fs_allowin; //en
 assign inst_sram_wr    = 1'h0; //wen
