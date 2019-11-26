@@ -57,6 +57,7 @@ assign {rf_we   ,  //40:37
        } = ws_to_rf_bus;
 
 wire        br_op;
+wire        br_stall;
 wire        br_taken;
 wire [31:0] br_target;
 
@@ -196,7 +197,7 @@ wire        rs_eq_rt;
 wire        rs_eq_zero;
 wire        rs_lt_zero;
 
-assign br_bus       = {br_op, br_taken, br_target};
+assign br_bus       = {br_op, br_stall, br_taken, br_target};
 
 assign ds_to_es_bus = {ds_ex       ,  //206:206
                        ds_exccode  ,  //205:201
@@ -475,7 +476,8 @@ assign br_op = (inst_beq    | inst_bne |
                 inst_bgez   | inst_bgtz   | inst_blez | inst_bltz | 
                 inst_bgezal | inst_bltzal | 
                 inst_j      | inst_jal    | inst_jr   | inst_jalr
-               ) && ds_to_es_valid;
+               ) && (ds_valid || br_stall); //ds_pcÊÇ×ªÒÆÖ¸Áî
+assign br_stall = load_block || mfc0_block;
 assign br_taken = (   inst_beq    &&  rs_eq_rt
                    || inst_bne    && !rs_eq_rt
                    || inst_bgez   && !rs_lt_zero
@@ -488,7 +490,7 @@ assign br_taken = (   inst_beq    &&  rs_eq_rt
                    || inst_jal 
                    || inst_jr
                    || inst_jalr
-                  ) && ds_to_es_valid;
+                  ) && ds_valid && !br_stall;
 assign br_target = (inst_beq || inst_bne || inst_bgez || inst_bgtz || inst_blez || inst_bltz || inst_bgezal || inst_bltzal) ? (fs_pc + {{14{imm[15]}}, imm[15:0], 2'b0}) :
                    (inst_jr || inst_jalr) ?  rs_value :
                    /*(inst_jal || inst_j)*/  {fs_pc[31:28], jidx[25:0], 2'b0};

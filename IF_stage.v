@@ -37,12 +37,14 @@ reg  [31:0] buf_npc;
 wire [31:0] true_npc;
 
 wire        br_op;
+wire        br_stall;
 wire        br_taken;
 wire [31:0] br_target;
 reg         br_bus_valid;
-reg  [33:0] br_bus_r;
-wire [33:0] true_br_bus;
+reg  [34:0] br_bus_r;
+wire [34:0] true_br_bus;
 assign {br_op    ,
+        br_stall ,
         br_taken ,
         br_target} = true_br_bus;
 
@@ -53,8 +55,8 @@ always @(posedge clk) begin
         br_bus_valid <= 1'b0;
     else if (ws_handle_ex)
         br_bus_valid <= 1'b0;
-    else if (br_op && !(fs_valid && fs_allowin))
-        br_bus_valid <= 1'b1;
+    else if (br_op && !br_stall && !(fs_valid && fs_allowin))
+        br_bus_valid <= 1'b1; //只记录有效的br_bus
     else if (fs_allowin)
         br_bus_valid <= 1'b0;
     
@@ -90,7 +92,7 @@ always @(posedge clk)begin
         buf_npc_valid <= 1'b0;
     else if (to_fs_valid && fs_allowin)
         buf_npc_valid <= 1'b0;
-    else if (!buf_npc_valid)
+    else if (!buf_npc_valid && !br_stall)
         buf_npc_valid <= 1'b1;
      
     if (!buf_npc_valid)
