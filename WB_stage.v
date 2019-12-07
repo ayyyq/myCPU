@@ -93,8 +93,8 @@ assign rf_wdata = ws_final_result;
 reg [31:0] cp0_badvaddr;
 reg [31:0] cp0_count;
 reg [31:0] cp0_compare;
-reg [31:0] cp0_status;  
-reg [31:0] cp0_cause;
+wire [31:0] cp0_status;  
+wire [31:0] cp0_cause;
 reg [31:0] cp0_epc;
 
 wire mtc0_we;
@@ -132,16 +132,14 @@ always @(posedge clk) begin
     else if (mtc0_we && cp0_addr == `CR_STATUS)
         cp0_status_ie <= cp0_wdata[0];
 end
-always @(posedge clk) begin
-    cp0_status <= {9'b0, 
-                   cp0_status_bev, 
-                   6'b0, 
-                   cp0_status_im, 
-                   6'b0, 
-                   cp0_status_exl, 
-                   cp0_status_ie
-                   };
-end
+assign cp0_status = {9'b0, 
+                     cp0_status_bev, 
+                     6'b0, 
+                     cp0_status_im, 
+                     6'b0, 
+                     cp0_status_exl, 
+                     cp0_status_ie
+                     };
 
 //CP0 Cause
 reg cp0_cause_bd;
@@ -184,16 +182,14 @@ always @(posedge clk) begin
     else if (ws_ex)
         cp0_cause_exccode <= ws_exccode;
 end
-always @(posedge clk) begin
-    cp0_cause <= {cp0_cause_bd, 
-                  cp0_cause_ti, 
-                  14'b0, 
-                  cp0_cause_ip, 
-                  1'b0, 
-                  cp0_cause_exccode, 
-                  2'b0
-                  };
-end
+assign cp0_cause = {cp0_cause_bd, 
+                    cp0_cause_ti, 
+                    14'b0, 
+                    cp0_cause_ip, 
+                    1'b0, 
+                    cp0_cause_exccode, 
+                    2'b0
+                    };
 
 //CP0 EPC
 always @(posedge clk) begin

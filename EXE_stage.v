@@ -184,7 +184,7 @@ assign es_div_block = es_valid && (es_div_op || es_divu_op) && !dout_tvalid;
 wire forward_ex;
 assign forward_ex = es_ex || ms_handle_ex || ws_handle_ex;
 
-assign es_ready_go    = !es_div_block && data_sram_addrok;
+assign es_ready_go    = !es_div_block && (!es_mem_inst || data_sram_addrok);
 assign es_allowin     = !es_valid || es_ready_go && ms_allowin;
 assign es_to_ms_valid =  es_valid && es_ready_go;
 always @(posedge clk) begin
