@@ -280,7 +280,9 @@ assign {ws_tlbp_op,
 //CP0 Index
 reg cp0_index_p;
 always@(posedge clk) begin
-    if (ws_tlbp_op)
+    if (reset)
+        cp0_index_p <= 1'b0;
+    else if (ws_tlbp_op)
         cp0_index_p <= !s1_found;
 end
 reg [3:0] cp0_index_index;
@@ -296,10 +298,10 @@ assign cp0_index = {cp0_index_p,
                     };
 
 //CP0 EnrtyLo0
-reg [23:0] cp0_entrylo0_pfn;
+reg [19:0] cp0_entrylo0_pfn;
 always @(posedge clk) begin
     if (mtc0_we && cp0_addr == `CR_ENTRYLO0)
-        cp0_entrylo0_pfn <= cp0_wdata[29:6];
+        cp0_entrylo0_pfn <= cp0_wdata[25:6];
     else if (ws_tlbr_op)
         cp0_entrylo0_pfn <= r_pfn0;
 end
@@ -331,7 +333,7 @@ always @(posedge clk) begin
     else if (ws_tlbr_op)
         cp0_entrylo0_g <= r_g;
 end
-assign cp0_entrylo0 = {2'b0,
+assign cp0_entrylo0 = {6'b0,
                        cp0_entrylo0_pfn,
                        cp0_entrylo0_c,
                        cp0_entrylo0_d,
@@ -340,10 +342,10 @@ assign cp0_entrylo0 = {2'b0,
                        };
 
 //CP0 EnrtyLo1
-reg [23:0] cp0_entrylo1_pfn;
+reg [19:0] cp0_entrylo1_pfn;
 always @(posedge clk) begin
     if (mtc0_we && cp0_addr == `CR_ENTRYLO1)
-        cp0_entrylo1_pfn <= cp0_wdata[29:6];
+        cp0_entrylo1_pfn <= cp0_wdata[25:6];
     else if (ws_tlbr_op)
         cp0_entrylo1_pfn <= r_pfn1;
 end
@@ -375,7 +377,7 @@ always @(posedge clk) begin
     else if (ws_tlbr_op)
         cp0_entrylo1_g <= r_g;
 end
-assign cp0_entrylo1 = {2'b0,
+assign cp0_entrylo1 = {6'b0,
                        cp0_entrylo1_pfn,
                        cp0_entrylo1_c,
                        cp0_entrylo1_d,
