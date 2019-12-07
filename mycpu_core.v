@@ -51,11 +51,11 @@ wire [`BR_BUS_WD       -1:0] br_bus;
 wire es_valid;
 wire ms_valid;
 wire ws_valid;
-wire ms_handle_ex;
-wire ws_handle_ex;
-wire [31:0] ex_pc;
 wire has_int;
 wire ms_load_op;
+wire ms_cancel;
+wire ws_cancel;
+wire [31:0] new_pc;
 
 // IF stage
 if_stage if_stage(
@@ -78,8 +78,9 @@ if_stage if_stage(
     .inst_sram_rdata (inst_sram_rdata ),
     .inst_sram_addrok(inst_sram_addrok),
     .inst_sram_dataok(inst_sram_dataok),
-    .ws_handle_ex    (ws_handle_ex    ),
-    .ex_pc           (ex_pc           )
+    //exception
+    .ws_cancel       (ws_cancel       ),
+    .new_pc          (new_pc          )
 );
 // ID stage
 id_stage id_stage(
@@ -91,10 +92,10 @@ id_stage id_stage(
     //from fs
     .fs_to_ds_valid (fs_to_ds_valid ),
     .fs_to_ds_bus   (fs_to_ds_bus   ),
-    //from exe
+    //from es
     .es_valid       (es_valid       ),
     .es_to_ms_bus   (es_to_ms_bus   ),
-    //from mem
+    //from ms
     .ms_valid       (ms_valid       ),
     .ms_load_op     (ms_load_op     ),
     .ms_to_ws_bus   (ms_to_ws_bus   ),
@@ -106,7 +107,7 @@ id_stage id_stage(
     //to rf: for write back
     .ws_valid       (ws_valid       ),
     .ws_to_rf_bus   (ws_to_rf_bus   ),
-    .ws_handle_ex   (ws_handle_ex   )
+    .ws_cancel      (ws_cancel      )
 );
 // EXE stage
 exe_stage exe_stage(
@@ -118,6 +119,10 @@ exe_stage exe_stage(
     //from ds
     .ds_to_es_valid  (ds_to_es_valid  ),
     .ds_to_es_bus    (ds_to_es_bus    ),
+    //from ws
+    .has_int         (has_int         ),
+    //to ds
+    .es_valid        (es_valid        ),
     //to ms
     .es_to_ms_valid  (es_to_ms_valid  ),
     .es_to_ms_bus    (es_to_ms_bus    ),
@@ -129,10 +134,9 @@ exe_stage exe_stage(
     .data_sram_wstrb (data_sram_wstrb ),
     .data_sram_wdata (data_sram_wdata ),
     .data_sram_addrok(data_sram_addrok),
-    .ms_handle_ex    (ms_handle_ex    ),
-    .ws_handle_ex    (ws_handle_ex    ),
-    .has_int         (has_int         ),
-    .es_valid        (es_valid        )
+    //exception
+    .ms_cancel       (ms_cancel       ),
+    .ws_cancel       (ws_cancel       )
 );
 // MEM stage
 mem_stage mem_stage(
@@ -153,8 +157,9 @@ mem_stage mem_stage(
     //from data-sram
     .data_sram_rdata (data_sram_rdata ),
     .data_sram_dataok(data_sram_dataok),
-    .ms_handle_ex    (ms_handle_ex    ),
-    .ws_handle_ex    (ws_handle_ex    )
+    //excepiton
+    .ms_cancel       (ms_cancel       ),
+    .ws_cancel       (ws_cancel       )
 );
 // WB stage
 wb_stage wb_stage(
@@ -168,15 +173,18 @@ wb_stage wb_stage(
     .ms_to_ws_bus   (ms_to_ws_bus   ),
     //to rf: for write back
     .ws_to_rf_bus   (ws_to_rf_bus   ),
+    //to ds
+    .ws_valid       (ws_valid       ),
+    // to es
+    .has_int        (has_int        ),
     //trace debug interface
     .debug_wb_pc      (debug_wb_pc      ),
     .debug_wb_rf_wen  (debug_wb_rf_wen  ),
     .debug_wb_rf_wnum (debug_wb_rf_wnum ),
     .debug_wb_rf_wdata(debug_wb_rf_wdata),
-    .ws_valid         (ws_valid         ),
-    .ws_handle_ex     (ws_handle_ex     ),
-    .ex_pc            (ex_pc            ),
-    .has_int          (has_int          )
+    //exception
+    .ws_cancel        (ws_cancel        ),
+    .new_pc           (new_pc           )
 );
 
 endmodule

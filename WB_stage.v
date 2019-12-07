@@ -12,15 +12,18 @@ module wb_stage(
     input  [`MS_TO_WS_BUS_WD -1:0]  ms_to_ws_bus  ,
     //to rf: for write back
     output [`WS_TO_RF_BUS_WD -1:0]  ws_to_rf_bus  ,
+    //to ds
+    output reg ws_valid,
+    //to es
+    output has_int,
     //trace debug interface
     output [31:0] debug_wb_pc      ,
     output [ 3:0] debug_wb_rf_wen  ,
     output [ 4:0] debug_wb_rf_wnum ,
     output [31:0] debug_wb_rf_wdata,
-    output reg ws_valid            ,
-    output ws_handle_ex               ,
-    output [31:0] ex_pc            ,
-    output has_int
+    //exception
+    output ws_cancel,
+    output [31:0] new_pc            
 );
 
 wire        ws_ready_go;
@@ -30,7 +33,7 @@ wire        ms_ex;
 wire [ 4:0] ms_exccode;
 wire        ws_bd;
 wire [31:0] ws_badvaddr;
-wire        eret_flush;
+wire        ws_eret_op;
 wire        mtc0_op;
 wire [ 7:0] cp0_addr;
 wire [31:0] cp0_wdata;
@@ -43,7 +46,7 @@ assign {ms_ex          ,  //154:154
         ms_exccode     ,  //153:149
         ws_bd          ,  //148:148
         ws_badvaddr    ,  //147:116
-        eret_flush     ,  //115:115
+        ws_eret_op     ,  //115:115
         mtc0_op        ,  //114:114
         cp0_addr       ,  //113:106
         cp0_wdata      ,  //105:74
@@ -57,6 +60,7 @@ assign {ms_ex          ,  //154:154
 wire        ws_ex;
 wire [ 4:0] ws_exccode;
 wire [31:0] ws_final_result;
+wire        eret_flush;
 
 wire [3 :0] rf_we;
 wire [4 :0] rf_waddr;
@@ -72,7 +76,7 @@ always @(posedge clk) begin
     if (reset) begin
         ws_valid <= 1'b0;
     end
-    else if (ws_handle_ex)
+    else if (ws_cancel)
         ws_valid <= 1'b0;
     else if (ws_allowin) begin
         ws_valid <= ms_to_ws_valid;
@@ -90,12 +94,12 @@ assign rf_waddr = ws_dest;
 assign rf_wdata = ws_final_result;
 
 //exception
-reg [31:0] cp0_badvaddr;
-reg [31:0] cp0_count;
-reg [31:0] cp0_compare;
+reg  [31:0] cp0_badvaddr;
+reg  [31:0] cp0_count;
+reg  [31:0] cp0_compare;
 wire [31:0] cp0_status;  
 wire [31:0] cp0_cause;
-reg [31:0] cp0_epc;
+reg  [31:0] cp0_epc;
 
 wire mtc0_we;
 assign mtc0_we = ws_valid && mtc0_op && !ws_ex;
@@ -235,8 +239,9 @@ assign ws_final_result = ws_res_from_cp0 ? (cp0_addr == `CR_BADVADDR) ? cp0_badv
                                            (cp0_addr == `CR_EPC) ? cp0_epc : 
                                            ms_final_result : 
                                            ms_final_result ;
-assign ws_handle_ex = ws_valid && (ws_ex || eret_flush);
-assign ex_pc = eret_flush ? cp0_epc: 32'hbfc00380;
+assign eret_flush = ws_valid && ws_eret_op;
+assign ws_cancel = ws_ex || eret_flush;
+assign new_pc = eret_flush ? cp0_epc: 32'hbfc00380;
 
 //interrupt
 assign ext_int_in = 6'h00;

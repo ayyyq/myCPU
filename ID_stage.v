@@ -9,10 +9,10 @@ module id_stage(
     //from fs
     input                          fs_to_ds_valid,
     input  [`FS_TO_DS_BUS_WD -1:0] fs_to_ds_bus  ,
-    //from exe
+    //from es
     input                          es_valid      ,
     input  [`ES_TO_MS_BUS_WD -1:0] es_to_ms_bus  ,
-    //from mem
+    //from ms
     input                          ms_valid      ,
     input                          ms_load_op    ,
     input  [`MS_TO_WS_BUS_WD -1:0] ms_to_ws_bus  ,
@@ -24,7 +24,7 @@ module id_stage(
     //to rf: for write back
     input                          ws_valid      ,
     input  [`WS_TO_RF_BUS_WD -1:0] ws_to_rf_bus  ,
-    input                          ws_handle_ex
+    input                          ws_cancel
 );
 
 reg         ds_valid   ;
@@ -280,7 +280,7 @@ always @(posedge clk) begin
     if (reset) begin
         ds_valid <= 1'b0;
     end
-    else if (ws_handle_ex)
+    else if (ws_cancel)
         ds_valid <= 1'b0;
     else if (ds_allowin) begin
         ds_valid <= fs_to_ds_valid;

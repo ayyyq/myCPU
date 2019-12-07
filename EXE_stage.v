@@ -9,6 +9,10 @@ module exe_stage(
     //from ds
     input                          ds_to_es_valid,
     input  [`DS_TO_ES_BUS_WD -1:0] ds_to_es_bus  ,
+    //from ws
+    input                          has_int       ,
+    //to ds
+    output reg                    es_valid      ,
     //to ms
     output                         es_to_ms_valid,
     output [`ES_TO_MS_BUS_WD -1:0] es_to_ms_bus  ,
@@ -21,11 +25,8 @@ module exe_stage(
     output [31:0] data_sram_wdata,
     input         data_sram_addrok,
     //exception
-    input ms_handle_ex,
-    input ws_handle_ex,
-    input has_int,
-    
-    output reg es_valid
+    input ms_cancel,
+    input ws_cancel
 );
 
 wire        es_ready_go   ;
@@ -182,7 +183,7 @@ assign es_to_ms_bus = {es_ex          ,  //160:160
 wire es_div_block;
 assign es_div_block = es_valid && (es_div_op || es_divu_op) && !dout_tvalid;
 wire forward_ex;
-assign forward_ex = es_ex || ms_handle_ex || ws_handle_ex;
+assign forward_ex = es_ex || ms_cancel || ws_cancel;
 
 assign es_ready_go    = !es_div_block && (!es_mem_inst || data_sram_addrok);
 assign es_allowin     = !es_valid || es_ready_go && ms_allowin;
@@ -191,7 +192,7 @@ always @(posedge clk) begin
     if (reset) begin
         es_valid <= 1'b0;
     end
-    else if (ws_handle_ex)
+    else if (ws_cancel)
         es_valid <= 1'b0;
     else if (es_allowin) begin
         es_valid <= ds_to_es_valid;

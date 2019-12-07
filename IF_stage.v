@@ -21,8 +21,8 @@ module if_stage(
     input         inst_sram_addrok,
     input         inst_sram_dataok,                       
     //exception
-    input         ws_handle_ex      ,
-    input  [31:0] ex_pc
+    input         ws_cancel      ,
+    input  [31:0] new_pc
 );
 
 reg         fs_valid;
@@ -53,7 +53,7 @@ assign true_br_bus = br_bus_valid ? br_bus_r : br_bus;
 always @(posedge clk) begin
     if (reset)
         br_bus_valid <= 1'b0;
-    else if (ws_handle_ex)
+    else if (ws_cancel)
         br_bus_valid <= 1'b0;
     else if (br_op && !br_stall && !(fs_valid && fs_allowin))
         br_bus_valid <= 1'b1; //只记录有效的br_bus
@@ -88,7 +88,7 @@ assign true_npc = buf_npc_valid ? buf_npc : nextpc;
 always @(posedge clk)begin
     if (reset)
         buf_npc_valid <= 1'b0;
-    else if (ws_handle_ex)
+    else if (ws_cancel)
         buf_npc_valid <= 1'b0;
     else if (to_fs_valid && fs_allowin)
         buf_npc_valid <= 1'b0;
@@ -116,7 +116,7 @@ always @(posedge clk) begin
     if (reset) begin
         fs_valid <= 1'b0;
     end
-    else if (ws_handle_ex)
+    else if (ws_cancel)
         fs_valid <= 1'b0;
     else if (fs_allowin) begin
         fs_valid <= to_fs_valid;
@@ -125,8 +125,8 @@ always @(posedge clk) begin
     if (reset) begin
         fs_pc <= 32'hbfbffffc;  //trick: to make nextpc be 0xbfc00000 during reset 
     end
-    else if (ws_handle_ex)
-        fs_pc <= ex_pc - 3'h4;
+    else if (ws_cancel)
+        fs_pc <= new_pc - 3'h4;
     else if (to_fs_valid && fs_allowin) begin
         fs_pc <= true_npc;
     end
