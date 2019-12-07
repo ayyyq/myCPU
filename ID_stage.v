@@ -62,6 +62,9 @@ wire        br_taken;
 wire [31:0] br_target;
 
 //ds_to_es_bus
+wire        tlbp_op;
+wire        tlbwi_op;
+wire        tlbr_op;
 wire        ds_ex;
 wire [ 4:0] ds_exccode;
 wire        ov_op;
@@ -184,6 +187,9 @@ wire        inst_mfc0;
 wire        inst_mtc0;
 wire        inst_syscall;
 wire        inst_break;
+wire        inst_tlbp;
+wire        inst_tlbwi;
+wire        inst_tlbr;
 
 wire        dst_is_r31;  
 wire        dst_is_rt;   
@@ -199,7 +205,10 @@ wire        rs_lt_zero;
 
 assign br_bus       = {br_op, br_stall, br_taken, br_target};
 
-assign ds_to_es_bus = {ds_ex       ,  //206:206
+assign ds_to_es_bus = {tlbp_op     ,  //209:209
+                       tlbwi_op    ,  //208:208
+                       tlbr_op     ,  //207:207
+                       ds_ex       ,  //206:206
                        ds_exccode  ,  //205:201
                        ds_bd       ,  //200:200
                        ds_badvaddr ,  //199:168
@@ -244,25 +253,33 @@ assign ds_to_es_bus = {ds_ex       ,  //206:206
                       };
 
 //exe_stage
-wire es_mfc0_op;
-wire es_load_op;
-wire es_gr_we;
-wire [4:0] es_dest;
+wire        es_mtc0_op;
+wire [ 7:0] es_cp0_addr;
+wire        es_mfc0_op;
+wire        es_load_op;
+wire        es_gr_we;
+wire [ 4:0] es_dest;
 wire [31:0] es_alu_result;
-assign es_mfc0_op = es_to_ms_bus[79];
-assign es_load_op = es_to_ms_bus[78];
-assign es_gr_we = es_to_ms_bus[69];
-assign es_dest = es_to_ms_bus[68:64];
+assign es_mtc0_op    = es_to_ms_bus[120];
+assign es_cp0_addr   = es_to_ms_bus[119:112];
+assign es_mfc0_op    = es_to_ms_bus[79];
+assign es_load_op    = es_to_ms_bus[78];
+assign es_gr_we      = es_to_ms_bus[69];
+assign es_dest       = es_to_ms_bus[68:64];
 assign es_alu_result = es_to_ms_bus[63:32];
 
 //mem_stage
-wire ms_mfc0_op;
+wire        ms_mtc0_op;
+wire [ 7:0] ms_cp0_addr;
+wire        ms_mfc0_op;
 wire [ 3:0] ms_rf_we;
 wire [ 4:0] ms_dest;
 wire [31:0] ms_final_result;
-assign ms_mfc0_op = ms_to_ws_bus[73];
-assign ms_rf_we = ms_to_ws_bus[72:69];
-assign ms_dest = ms_to_ws_bus[68:64];
+assign ms_mtc0_op      = ms_to_ws_bus[114];
+assign ms_cp0_addr     = ms_to_ws_bus[113:106];
+assign ms_mfc0_op      = ms_to_ws_bus[73];
+assign ms_rf_we        = ms_to_ws_bus[72:69];
+assign ms_dest         = ms_to_ws_bus[68:64];
 assign ms_final_result = ms_to_ws_bus[63:32];
 
 wire load_block;
@@ -271,8 +288,11 @@ assign load_block = es_valid && es_load_op && es_dest != 5'b0 && (es_dest == rs 
 wire mfc0_block;
 assign mfc0_block = es_valid && es_mfc0_op && es_dest != 5'b0 && (es_dest == rs || es_dest == rt)
                  || ms_valid && ms_mfc0_op && ms_dest != 5'b0 && (ms_dest == rs || ms_dest == rt);
+wire tlb_block;
+assign tlb_block = tlbp_op && (es_valid && es_mtc0_op && es_cp0_addr == `CR_ENTRYHI
+                            || ms_valid && ms_mtc0_op && ms_cp0_addr == `CR_ENTRYHI);
 
-assign ds_ready_go    = !load_block && !mfc0_block;
+assign ds_ready_go    = !load_block && !mfc0_block && !tlb_block;
 assign ds_allowin     = !ds_valid || ds_ready_go && es_allowin;
 assign ds_to_es_valid = ds_valid && ds_ready_go;
 always @(posedge clk) begin
@@ -365,6 +385,9 @@ assign inst_jal    = op_d[6'h03];
 assign inst_jr     = op_d[6'h00] & func_d[6'h08] & rt_d[5'h00] & rd_d[5'h00] & sa_d[5'h00];
 assign inst_jalr   = op_d[6'h00] & func_d[6'h09] & rt_d[5'h00] & sa_d[5'h00];
 assign inst_eret   = ds_inst == 32'b010000_1_000_0000_0000_0000_0000_011000;
+assign inst_tlbp   = ds_inst == 32'b010000_1_000_0000_0000_0000_0000_001000;
+assign inst_tlbwi  = ds_inst == 32'b010000_1_000_0000_0000_0000_0000_000010;
+assign inst_tlbr   = ds_inst == 32'b010000_1_000_0000_0000_0000_0000_000001;
 assign inst_mfc0   = op_d[6'h10] & rs_d[5'h00] & ds_inst[10:3] == 8'h00;
 assign inst_mtc0   = op_d[6'h10] & rs_d[5'h04] & ds_inst[10:3] == 8'h00;
 
@@ -410,7 +433,7 @@ assign res_from_mem = inst_lb | inst_lbu | inst_lh | inst_lhu | inst_lw | inst_l
 assign dst_is_r31   = inst_bgezal | inst_bltzal | inst_jal;
 assign dst_is_rt    = inst_addi | inst_addiu | inst_slti | inst_sltiu | inst_andi | inst_ori | inst_xori | inst_lui | inst_lb | inst_lbu | inst_lh | inst_lhu | inst_lw | inst_lwl | inst_lwr | inst_mfc0;
 
-assign gr_we        = ~inst_sb & ~inst_sh & ~inst_sw & ~inst_swl & ~inst_swr & ~inst_beq & ~inst_bne & ~inst_bgez & ~inst_bgtz & ~inst_blez & ~inst_bltz & ~inst_j & ~inst_jr & ~inst_mult & ~inst_multu & ~inst_div & ~inst_divu & ~inst_mthi & ~inst_mtlo & ~inst_eret & ~inst_mtc0 & ~inst_syscall & ~inst_break;
+assign gr_we        = ~inst_sb & ~inst_sh & ~inst_sw & ~inst_swl & ~inst_swr & ~inst_beq & ~inst_bne & ~inst_bgez & ~inst_bgtz & ~inst_blez & ~inst_bltz & ~inst_j & ~inst_jr & ~inst_mult & ~inst_multu & ~inst_div & ~inst_divu & ~inst_mthi & ~inst_mtlo & ~inst_eret & ~inst_tlbp & ~inst_tlbwi & ~inst_tlbr & ~inst_mtc0 & ~inst_syscall & ~inst_break;
 assign mem_we       = inst_sb | inst_sh | inst_sw | inst_swl | inst_swr;
 assign hi_re        = inst_mfhi;
 assign lo_re        = inst_mflo;
@@ -501,18 +524,18 @@ wire ex_bp;
 wire ex_ri;
 assign ex_sys = inst_syscall;
 assign ex_bp = inst_break;
-assign ex_ri = ~inst_add   & ~inst_addi & ~inst_addu & ~inst_addiu & ~inst_sub  & ~inst_subu & 
-               ~inst_slt   & ~inst_slti & ~inst_sltu & ~inst_sltiu & 
-               ~inst_div   & ~inst_divu & ~inst_mult & ~inst_multu & 
-               ~inst_and   & ~inst_andi & ~inst_lui  & ~inst_nor   & ~inst_or   & ~inst_ori  & ~inst_xor    & ~inst_xori & 
-               ~inst_sllv  & ~inst_sll  & ~inst_srav & ~inst_sra   & ~inst_srlv & ~inst_srl  & 
-               ~inst_beq   & ~inst_bne  & ~inst_bgez & ~inst_bgtz  & ~inst_blez & ~inst_bltz & ~inst_bgezal & ~inst_bltzal & 
-               ~inst_j     & ~inst_jal  & ~inst_jr   & ~inst_jalr  & 
-               ~inst_mfhi  & ~inst_mflo & ~inst_mthi & ~inst_mtlo  & 
+assign ex_ri = ~inst_add   & ~inst_addi & ~inst_addu  & ~inst_addiu & ~inst_sub  & ~inst_subu & 
+               ~inst_slt   & ~inst_slti & ~inst_sltu  & ~inst_sltiu & 
+               ~inst_div   & ~inst_divu & ~inst_mult  & ~inst_multu & 
+               ~inst_and   & ~inst_andi & ~inst_lui   & ~inst_nor   & ~inst_or   & ~inst_ori  & ~inst_xor    & ~inst_xori & 
+               ~inst_sllv  & ~inst_sll  & ~inst_srav  & ~inst_sra   & ~inst_srlv & ~inst_srl  & 
+               ~inst_beq   & ~inst_bne  & ~inst_bgez  & ~inst_bgtz  & ~inst_blez & ~inst_bltz & ~inst_bgezal & ~inst_bltzal & 
+               ~inst_j     & ~inst_jal  & ~inst_jr    & ~inst_jalr  & 
+               ~inst_mfhi  & ~inst_mflo & ~inst_mthi  & ~inst_mtlo  & 
                ~inst_break & ~inst_syscall & 
-               ~inst_lb    & ~inst_lbu  & ~inst_lh   & ~inst_lhu   & ~inst_lw   & ~inst_lwl  & ~inst_lwr & 
-               ~inst_sb    & ~inst_sh   & ~inst_sw   & ~inst_swl   & ~inst_swr  & 
-               ~inst_eret  & ~inst_mfc0 & ~inst_mtc0;
+               ~inst_lb    & ~inst_lbu  & ~inst_lh    & ~inst_lhu   & ~inst_lw   & ~inst_lwl  & ~inst_lwr & 
+               ~inst_sb    & ~inst_sh   & ~inst_sw    & ~inst_swl   & ~inst_swr  & 
+               ~inst_eret  & ~inst_tlbp & ~inst_tlbwi & ~inst_tlbr  & ~inst_mfc0 & ~inst_mtc0;
                
 assign ds_ex = ds_valid && (fs_ex | ex_ri | ex_bp | ex_sys);
 assign ds_exccode = fs_ex      ? fs_exccode :
@@ -521,10 +544,14 @@ assign ds_exccode = fs_ex      ? fs_exccode :
                     ex_sys     ? `EX_SYS    :
                                  5'h00      ;
 
-assign ov_op   = inst_add | inst_addi | inst_sub;
-assign eret_op = inst_eret;
-assign mfc0_op = inst_mfc0;
-assign mtc0_op = inst_mtc0;
+assign ov_op    = inst_add | inst_addi | inst_sub;
+assign eret_op  = inst_eret;
+assign mfc0_op  = inst_mfc0;
+assign mtc0_op  = inst_mtc0;
 assign cp0_addr = {rd, sel};
+
+assign tlbp_op  = inst_tlbp;
+assign tlbwi_op = inst_tlbwi;
+assign tlbr_op  = inst_tlbr;
 
 endmodule

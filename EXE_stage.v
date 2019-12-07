@@ -26,12 +26,28 @@ module exe_stage(
     input         data_sram_addrok,
     //exception
     input ms_cancel,
-    input ws_cancel
+    input ws_cancel,
+    //TLB
+    output [18:0] s1_vpn2,
+    output        s1_odd_page,
+    output [ 7:0] s1_asid,
+    input         s1_found,
+    input  [ 3:0] s1_index,
+    input  [19:0] s1_pfn,
+    input  [ 2:0] s1_c,
+    input         s1_d,
+    input         s1_v,
+    
+    input  [26:0] cp0_entryhi_bus,
+    output [ 5:0] tlbp_bus
 );
 
 wire        es_ready_go   ;
 
 reg  [`DS_TO_ES_BUS_WD -1:0] ds_to_es_bus_r;
+wire        es_tlbp_op    ;
+wire        es_tlbwi_op   ;
+wire        es_tlbr_op    ;
 wire        ds_ex         ;
 wire [ 4:0] ds_exccode    ;
 wire        es_bd         ;
@@ -74,7 +90,10 @@ wire [15:0] es_imm        ;
 wire [31:0] es_rs_value   ;
 wire [31:0] es_rt_value   ;
 wire [31:0] es_pc         ;
-assign {ds_ex          ,  //206:206
+assign {es_tlbp_op     ,  //209:209
+        es_tlbwi_op    ,  //208:208
+        es_tlbr_op     ,  //207:207
+        ds_ex          ,  //206:206
         ds_exccode     ,  //205:201
         es_bd          ,  //200:200
         ds_badvaddr    ,  //199:168
@@ -157,7 +176,9 @@ wire        es_mem_inst;
 
 assign es_res_from_cp0 = es_mfc0_op;
 assign es_res_from_mem = es_lb_op | es_lbu_op | es_lh_op | es_lhu_op | es_lw_op | es_lwl_op | es_lwr_op;
-assign es_to_ms_bus = {es_ex          ,  //160:160
+assign es_to_ms_bus = {es_tlbwi_op    ,  //162:162
+                       es_tlbr_op     ,  //161:161
+                       es_ex          ,  //160:160
                        es_exccode     ,  //159:155
                        es_bd          ,  //154:154
                        es_badvaddr    ,  //153:122
@@ -182,8 +203,8 @@ assign es_to_ms_bus = {es_ex          ,  //160:160
 
 wire es_div_block;
 assign es_div_block = es_valid && (es_div_op || es_divu_op) && !dout_tvalid;
-wire forward_ex;
-assign forward_ex = es_ex || ms_cancel || ws_cancel;
+wire forward_cancel;
+assign forward_cancel = es_ex || ms_cancel || ws_cancel;
 
 assign es_ready_go    = !es_div_block && (!es_mem_inst || data_sram_addrok);
 assign es_allowin     = !es_valid || es_ready_go && ms_allowin;
@@ -225,7 +246,7 @@ assign prod_src2 = es_mul_op ? {es_alu_src2[31], es_alu_src2[31:0]} :
 assign pout = $signed(prod_src1) * $signed(prod_src2);
 
 reg dividend_valid;
-assign dividend_tvalid = !forward_ex && (es_div_op || es_divu_op) && !dividend_valid;
+assign dividend_tvalid = es_valid && (es_div_op || es_divu_op) && !dividend_valid;
 always @(posedge clk) begin
     if (reset)
         dividend_valid <= 1'b0;
@@ -236,7 +257,7 @@ always @(posedge clk) begin
 end
 
 reg divisor_valid;
-assign divisor_tvalid = !forward_ex && (es_div_op || es_divu_op) && !divisor_valid;
+assign divisor_tvalid = es_valid && (es_div_op || es_divu_op) && !divisor_valid;
 always @(posedge clk) begin
     if (reset)
         divisor_valid <= 1'b0;
@@ -267,7 +288,7 @@ assign remainder = es_div_op ? (dout[31:0] ^ {32{es_alu_src1[31]}}) + es_alu_src
                                dout[31:0];
 
 always @(posedge clk) begin
-    if (!es_valid || forward_ex)
+    if (!es_valid || forward_cancel)
         hi <= hi;
     else if (es_mul_op || es_mulu_op)
         hi <= pout[63:32];
@@ -277,7 +298,7 @@ always @(posedge clk) begin
         hi <= es_alu_src1;
 end
 always @(posedge clk) begin
-    if (!es_valid || forward_ex)
+    if (!es_valid || forward_cancel)
         lo <= lo;
     else if (es_mul_op || es_mulu_op)
         lo <= pout[31:0];
@@ -308,23 +329,23 @@ assign data_sram_size = ( es_lb_op || es_lbu_op || es_sb_op ||
                          (es_lwl_op || es_swl_op) && es_mem_addr_low == 2'b01 || 
                          (es_lwr_op || es_swr_op) && es_mem_addr_low == 2'b10 ) ? 2'd1 : 
                          2'd2;
-assign data_sram_wstrb = forward_ex ? 4'b0000 : 
-                         es_mem_we && es_valid ? es_sb_op  ? (es_mem_addr_low == 2'b00) ? 4'b0001 : 
-                                                             (es_mem_addr_low == 2'b01) ? 4'b0010 : 
-                                                             (es_mem_addr_low == 2'b10) ? 4'b0100 : 
-                                                                                          4'b1000 : 
-                                                 es_sh_op  ? (es_mem_addr_low == 2'b00) ? 4'b0011 : 
-                                                                                          4'b1100 : 
-                                                 es_swl_op ? (es_mem_addr_low == 2'b00) ? 4'b0001 : 
-                                                             (es_mem_addr_low == 2'b01) ? 4'b0011 : 
-                                                             (es_mem_addr_low == 2'b10) ? 4'b0111 : 
-                                                                                          4'b1111 : 
-                                                 es_swr_op ? (es_mem_addr_low == 2'b11) ? 4'b1000 : 
-                                                             (es_mem_addr_low == 2'b10) ? 4'b1100 : 
-                                                             (es_mem_addr_low == 2'b01) ? 4'b1110 : 
-                                                                                          4'b1111 : 
-                                                                                          4'b1111 : 
-                                                                                          4'b0000 ;
+assign data_sram_wstrb = (!es_valid || forward_cancel) ? 4'b0000 : 
+                         es_mem_we ? es_sb_op  ? (es_mem_addr_low == 2'b00) ? 4'b0001 : 
+                                                 (es_mem_addr_low == 2'b01) ? 4'b0010 : 
+                                                 (es_mem_addr_low == 2'b10) ? 4'b0100 : 
+                                                                              4'b1000 : 
+                                     es_sh_op  ? (es_mem_addr_low == 2'b00) ? 4'b0011 : 
+                                                                              4'b1100 : 
+                                     es_swl_op ? (es_mem_addr_low == 2'b00) ? 4'b0001 : 
+                                                 (es_mem_addr_low == 2'b01) ? 4'b0011 : 
+                                                 (es_mem_addr_low == 2'b10) ? 4'b0111 : 
+                                                                              4'b1111 : 
+                                     es_swr_op ? (es_mem_addr_low == 2'b11) ? 4'b1000 : 
+                                                 (es_mem_addr_low == 2'b10) ? 4'b1100 : 
+                                                 (es_mem_addr_low == 2'b01) ? 4'b1110 : 
+                                                                              4'b1111 : 
+                                                 4'b1111 : 
+                                     4'b0000 ;
 assign data_sram_addr  = (es_lwl_op || es_swl_op) ? {es_alu_result[31:2], 2'b00} : es_alu_result;
 assign data_sram_wdata = es_sb_op  ? {4{es_rt_value[7:0]}} : 
                          es_sh_op  ? {2{es_rt_value[15:0]}} : 
@@ -362,5 +383,11 @@ assign es_exccode = ex_int  ? `EX_INT   :
                     ex_ades ? `EX_ADES  : 
                               5'h00     ;
 assign es_badvaddr = (ds_ex && ds_exccode == `EX_ADEL)? ds_badvaddr : es_alu_result;
+
+//TLB
+assign s1_vpn2 = cp0_entryhi_bus[26:8];
+assign s1_asid = cp0_entryhi_bus[7:0];
+
+assign tlbp_bus = {es_tlbp_op, s1_found, s1_index};
 
 endmodule

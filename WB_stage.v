@@ -23,12 +23,44 @@ module wb_stage(
     output [31:0] debug_wb_rf_wdata,
     //exception
     output ws_cancel,
-    output [31:0] new_pc            
+    output [31:0] new_pc,
+    //TLB
+    output [26:0] cp0_entryhi_bus,
+    input  [ 5:0] tlbp_bus,
+    
+    output        we,
+    output [ 3:0] w_index,
+    output [18:0] w_vpn2,
+    output [ 7:0] w_asid,
+    output        w_g,
+    output [19:0] w_pfn0,
+    output [ 2:0] w_c0,
+    output        w_d0,
+    output        w_v0,
+    output [19:0] w_pfn1,
+    output [ 2:0] w_c1,
+    output        w_d1,
+    output        w_v1,
+    
+    output [ 3:0] r_index,
+    input  [18:0] r_vpn2,
+    input  [ 7:0] r_asid,
+    input         r_g,
+    input  [19:0] r_pfn0,
+    input  [ 2:0] r_c0,
+    input         r_d0,
+    input         r_v0,
+    input  [19:0] r_pfn1,
+    input  [ 2:0] r_c1,
+    input         r_d1,
+    input         r_v1
 );
 
 wire        ws_ready_go;
 
 reg [`MS_TO_WS_BUS_WD -1:0] ms_to_ws_bus_r;
+wire        ms_tlbwi_op;
+wire        ms_tlbr_op;
 wire        ms_ex;
 wire [ 4:0] ms_exccode;
 wire        ws_bd;
@@ -42,7 +74,9 @@ wire [ 3:0] ws_rf_we;
 wire [ 4:0] ws_dest;
 wire [31:0] ms_final_result;
 wire [31:0] ws_pc;
-assign {ms_ex          ,  //154:154
+assign {ms_tlbwi_op    ,  //156:156
+        ms_tlbr_op     ,  //155:155
+        ms_ex          ,  //154:154
         ms_exccode     ,  //153:149
         ws_bd          ,  //148:148
         ws_badvaddr    ,  //147:116
@@ -61,6 +95,8 @@ wire        ws_ex;
 wire [ 4:0] ws_exccode;
 wire [31:0] ws_final_result;
 wire        eret_flush;
+wire        ws_tlbwi_op;
+wire        ws_tlbr_op;
 
 wire [3 :0] rf_we;
 wire [4 :0] rf_waddr;
@@ -94,8 +130,12 @@ assign rf_waddr = ws_dest;
 assign rf_wdata = ws_final_result;
 
 //exception
+wire [31:0] cp0_index;
+wire [31:0] cp0_entrylo0;
+wire [31:0] cp0_entrylo1;
 reg  [31:0] cp0_badvaddr;
 reg  [31:0] cp0_count;
+wire [31:0] cp0_entryhi;
 reg  [31:0] cp0_compare;
 wire [31:0] cp0_status;  
 wire [31:0] cp0_cause;
@@ -229,23 +269,184 @@ always @(posedge clk) begin
         cp0_compare <= cp0_wdata;
 end
 
+wire        ws_tlbp_op;
+wire        s1_found;
+wire [ 3:0] s1_index;
+assign {ws_tlbp_op,
+        s1_found,
+        s1_index
+        } = tlbp_bus;
+
+//CP0 Index
+reg cp0_index_p;
+always@(posedge clk) begin
+    if (ws_tlbp_op)
+        cp0_index_p <= !s1_found;
+end
+reg [3:0] cp0_index_index;
+always @(posedge clk) begin
+    if (mtc0_we && cp0_addr == `CR_INDEX)
+        cp0_index_index <= cp0_wdata[3:0];
+    else if (ws_tlbp_op)
+        cp0_index_index <= s1_index;
+end
+assign cp0_index = {cp0_index_p,
+                    27'b0,
+                    cp0_index_index
+                    };
+
+//CP0 EnrtyLo0
+reg [23:0] cp0_entrylo0_pfn;
+always @(posedge clk) begin
+    if (mtc0_we && cp0_addr == `CR_ENTRYLO0)
+        cp0_entrylo0_pfn <= cp0_wdata[29:6];
+    else if (ws_tlbr_op)
+        cp0_entrylo0_pfn <= r_pfn0;
+end
+reg [2:0] cp0_entrylo0_c;
+always @(posedge clk) begin
+    if (mtc0_we && cp0_addr == `CR_ENTRYLO0)
+        cp0_entrylo0_c <= cp0_wdata[5:3];
+    else if (ws_tlbr_op)
+        cp0_entrylo0_c <= r_c0;
+end
+reg cp0_entrylo0_d;
+always @(posedge clk) begin
+    if (mtc0_we && cp0_addr == `CR_ENTRYLO0)
+        cp0_entrylo0_d <= cp0_wdata[2];
+    else if (ws_tlbr_op)
+        cp0_entrylo0_d <= r_d0;
+end
+reg cp0_entrylo0_v;
+always @(posedge clk) begin
+    if (mtc0_we && cp0_addr == `CR_ENTRYLO0)
+        cp0_entrylo0_v <= cp0_wdata[1];
+    else if (ws_tlbr_op)
+        cp0_entrylo0_v <= r_v0;
+end
+reg cp0_entrylo0_g;
+always @(posedge clk) begin
+    if (mtc0_we && cp0_addr == `CR_ENTRYLO0)
+        cp0_entrylo0_g <= cp0_wdata[0];
+    else if (ws_tlbr_op)
+        cp0_entrylo0_g <= r_g;
+end
+assign cp0_entrylo0 = {2'b0,
+                       cp0_entrylo0_pfn,
+                       cp0_entrylo0_c,
+                       cp0_entrylo0_d,
+                       cp0_entrylo0_v,
+                       cp0_entrylo0_g
+                       };
+
+//CP0 EnrtyLo1
+reg [23:0] cp0_entrylo1_pfn;
+always @(posedge clk) begin
+    if (mtc0_we && cp0_addr == `CR_ENTRYLO1)
+        cp0_entrylo1_pfn <= cp0_wdata[29:6];
+    else if (ws_tlbr_op)
+        cp0_entrylo1_pfn <= r_pfn1;
+end
+reg [2:0] cp0_entrylo1_c;
+always @(posedge clk) begin
+    if (mtc0_we && cp0_addr == `CR_ENTRYLO1)
+        cp0_entrylo1_c <= cp0_wdata[5:3];
+    else if (ws_tlbr_op)
+        cp0_entrylo1_c <= r_c1;
+end
+reg cp0_entrylo1_d;
+always @(posedge clk) begin
+    if (mtc0_we && cp0_addr == `CR_ENTRYLO1)
+        cp0_entrylo1_d <= cp0_wdata[2];
+    else if (ws_tlbr_op)
+        cp0_entrylo1_d <= r_d1;
+end
+reg cp0_entrylo1_v;
+always @(posedge clk) begin
+    if (mtc0_we && cp0_addr == `CR_ENTRYLO1)
+        cp0_entrylo1_v <= cp0_wdata[1];
+    else if (ws_tlbr_op)
+        cp0_entrylo1_v <= r_v1;
+end
+reg cp0_entrylo1_g;
+always @(posedge clk) begin
+    if (mtc0_we && cp0_addr == `CR_ENTRYLO1)
+        cp0_entrylo1_g <= cp0_wdata[0];
+    else if (ws_tlbr_op)
+        cp0_entrylo1_g <= r_g;
+end
+assign cp0_entrylo1 = {2'b0,
+                       cp0_entrylo1_pfn,
+                       cp0_entrylo1_c,
+                       cp0_entrylo1_d,
+                       cp0_entrylo1_v,
+                       cp0_entrylo1_g
+                       };
+
+//CP0 EntryHi
+reg [18:0] cp0_entryhi_vpn2;
+always @(posedge clk) begin
+    if (mtc0_we && cp0_addr == `CR_ENTRYHI)
+        cp0_entryhi_vpn2 <= cp0_wdata[31:13];
+    else if (ws_tlbr_op)
+        cp0_entryhi_vpn2 <= r_vpn2;
+    //TLB exception
+end
+reg [7:0] cp0_entryhi_asid;
+always @(posedge clk) begin
+    if (mtc0_we && cp0_addr == `CR_ENTRYHI)
+        cp0_entryhi_asid <= cp0_wdata[7:0];
+    else if (ws_tlbr_op)
+        cp0_entryhi_asid <= r_asid;
+end
+assign cp0_entryhi = {cp0_entryhi_vpn2,
+                      5'b0,
+                      cp0_entryhi_asid
+                      };
+assign cp0_entryhi_bus = {cp0_entryhi_vpn2, cp0_entryhi_asid};
+
 assign ws_ex = ws_valid && ms_ex;
 assign ws_exccode = ms_exccode;
-assign ws_final_result = ws_res_from_cp0 ? (cp0_addr == `CR_BADVADDR) ? cp0_badvaddr : 
-                                           (cp0_addr == `CR_COUNT) ? cp0_count : 
-                                           (cp0_addr == `CR_COMPARE) ? cp0_compare : 
-                                           (cp0_addr == `CR_STATUS) ? cp0_status : 
-                                           (cp0_addr == `CR_CAUSE) ? cp0_cause : 
-                                           (cp0_addr == `CR_EPC) ? cp0_epc : 
-                                           ms_final_result : 
+assign ws_final_result = ws_res_from_cp0 ? (cp0_addr == `CR_INDEX)    ? cp0_index : 
+                                           (cp0_addr == `CR_ENTRYLO0) ? cp0_entrylo0 : 
+                                           (cp0_addr == `CR_ENTRYLO1) ? cp0_entrylo1 : 
+                                           (cp0_addr == `CR_BADVADDR) ? cp0_badvaddr : 
+                                           (cp0_addr == `CR_COUNT)    ? cp0_count : 
+                                           (cp0_addr == `CR_ENTRYHI)  ? cp0_entryhi : 
+                                           (cp0_addr == `CR_COMPARE)  ? cp0_compare : 
+                                           (cp0_addr == `CR_STATUS)   ? cp0_status : 
+                                           (cp0_addr == `CR_CAUSE)    ? cp0_cause : 
+                                           (cp0_addr == `CR_EPC)      ? cp0_epc : 
+                                                                        ms_final_result : 
                                            ms_final_result ;
 assign eret_flush = ws_valid && ws_eret_op;
-assign ws_cancel = ws_ex || eret_flush;
-assign new_pc = eret_flush ? cp0_epc: 32'hbfc00380;
+assign ws_tlbwi_op = ws_valid && ms_tlbwi_op;
+assign ws_tlbr_op = ws_valid && ms_tlbr_op;
+assign ws_cancel = ws_ex || eret_flush || ws_tlbwi_op || ws_tlbr_op;
+assign new_pc = (ws_tlbwi_op || ws_tlbr_op ) ? ws_pc + 3'h4 : 
+                eret_flush                   ? cp0_epc : 
+                                               32'hbfc00380;
 
 //interrupt
 assign ext_int_in = 6'h00;
 assign has_int = (cp0_cause_ip & cp0_status_im) != 8'h00 && cp0_status_ie == 1'b1 && cp0_status_exl == 1'b0;
+
+//TLB
+assign we      = ws_valid && ws_tlbwi_op;
+assign w_index = cp0_index_index;
+assign w_vpn2  = cp0_entryhi_vpn2;
+assign w_asid  = cp0_entryhi_asid;
+assign w_g     = cp0_entrylo0_g & cp0_entrylo1_g;
+assign w_pfn0  = cp0_entrylo0_pfn;
+assign w_c0    = cp0_entrylo0_c;
+assign w_d0    = cp0_entrylo0_d;
+assign w_v0    = cp0_entrylo0_v;
+assign w_pfn1  = cp0_entrylo1_pfn;
+assign w_c1    = cp0_entrylo1_c;
+assign w_d1    = cp0_entrylo1_d;
+assign w_v1    = cp0_entrylo1_v;
+
+assign r_index = cp0_index_index;
 
 // debug info generate
 assign debug_wb_pc       = ws_pc;

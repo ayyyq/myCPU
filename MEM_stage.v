@@ -26,6 +26,8 @@ module mem_stage(
 wire        ms_ready_go;
 
 reg [`ES_TO_MS_BUS_WD -1:0] es_to_ms_bus_r;
+wire        ms_tlbwi_op;
+wire        ms_tlbr_op;
 wire        es_ex;
 wire [ 4:0] es_exccode;
 wire        ms_bd;
@@ -47,7 +49,9 @@ wire        ms_gr_we;
 wire [ 4:0] ms_dest;
 wire [31:0] ms_alu_result;
 wire [31:0] ms_pc;
-assign {es_ex          ,  //160:160
+assign {ms_tlbwi_op    ,  //162:162
+        ms_tlbr_op     ,  //161:161
+        es_ex          ,  //160:160
         es_exccode     ,  //159:155
         ms_bd          ,  //154:154
         ms_badvaddr    ,  //153:122
@@ -76,7 +80,9 @@ wire [ 3:0] ms_rf_we;
 wire [31:0] mem_result;
 wire [31:0] ms_final_result;
 
-assign ms_to_ws_bus = {ms_ex          ,  //154:154
+assign ms_to_ws_bus = {ms_tlbwi_op    ,  //156:156
+                       ms_tlbr_op     ,  //155:155
+                       ms_ex          ,  //154:154
                        ms_exccode     ,  //153:149
                        ms_bd          ,  //148:148
                        ms_badvaddr    ,  //147:116
@@ -177,6 +183,6 @@ assign ms_final_result = ms_res_from_mem ? mem_result
 assign ms_ex = ms_valid && es_ex;
 assign ms_exccode = es_exccode;
 
-assign ms_cancel = ms_valid && (ms_ex || ms_eret_op);
+assign ms_cancel = ms_valid && (ms_ex || ms_eret_op || ms_tlbwi_op || ms_tlbr_op);
 
 endmodule
