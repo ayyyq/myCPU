@@ -25,7 +25,8 @@ module wb_stage(
     output ws_cancel,
     output [31:0] new_pc,
     //TLB
-    output [26:0] cp0_entryhi_bus,
+    output [18:0] entryhi_vpn2,
+    output [ 7:0] entryhi_asid,
     input  [ 5:0] tlbp_bus,
     
     output        we,
@@ -404,7 +405,8 @@ assign cp0_entryhi = {cp0_entryhi_vpn2,
                       5'b0,
                       cp0_entryhi_asid
                       };
-assign cp0_entryhi_bus = {cp0_entryhi_vpn2, cp0_entryhi_asid};
+assign entryhi_vpn2 = cp0_entryhi_vpn2;
+assign entryhi_asid = cp0_entryhi_asid;
 
 assign ws_ex = ws_valid && ms_ex;
 assign ws_exccode = ms_exccode;

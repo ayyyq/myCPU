@@ -38,7 +38,8 @@ module exe_stage(
     input         s1_d,
     input         s1_v,
     
-    input  [26:0] cp0_entryhi_bus,
+    input  [18:0] entryhi_vpn2,
+    input  [ 7:0] entryhi_asid,
     output [ 5:0] tlbp_bus
 );
 
@@ -170,6 +171,7 @@ wire [31:0] es_cp0_wdata;
 wire        es_res_from_cp0;
 wire        es_res_from_mem;
 wire [ 1:0] es_mem_addr_low;
+wire [31:0] es_mem_addr;
 wire        es_load_op;
 wire        es_store_op;
 wire        es_mem_inst;
@@ -316,6 +318,7 @@ assign es_alu_result = es_hi_re ? hi_rdata :
                                   aluout;
 
 assign es_mem_addr_low = es_alu_result[1:0];
+assign es_mem_addr = (es_lwl_op || es_swl_op) ? {es_alu_result[31:2], 2'b00} : es_alu_result;
 assign es_load_op = es_res_from_mem;
 assign es_store_op = es_mem_we;
 assign es_mem_inst = es_load_op || es_store_op;
@@ -346,7 +349,7 @@ assign data_sram_wstrb = (!es_valid || forward_cancel) ? 4'b0000 :
                                                                               4'b1111 : 
                                                  4'b1111 : 
                                      4'b0000 ;
-assign data_sram_addr  = (es_lwl_op || es_swl_op) ? {es_alu_result[31:2], 2'b00} : es_alu_result;
+assign data_sram_addr  = (es_mem_addr[31] && !es_mem_addr[30]) ? es_mem_addr : {s1_pfn, es_mem_addr[11:0]};
 assign data_sram_wdata = es_sb_op  ? {4{es_rt_value[7:0]}} : 
                          es_sh_op  ? {2{es_rt_value[15:0]}} : 
                          es_swl_op ? (es_mem_addr_low == 2'b00) ? es_rt_value[31:24] : 
@@ -385,8 +388,9 @@ assign es_exccode = ex_int  ? `EX_INT   :
 assign es_badvaddr = (ds_ex && ds_exccode == `EX_ADEL)? ds_badvaddr : es_alu_result;
 
 //TLB
-assign s1_vpn2 = cp0_entryhi_bus[26:8];
-assign s1_asid = cp0_entryhi_bus[7:0];
+assign s1_vpn2 = es_tlbp_op ? entryhi_vpn2: es_mem_addr[31:13];
+assign s1_odd_page = es_mem_addr[12];
+assign s1_asid = entryhi_asid;
 
 assign tlbp_bus = {es_tlbp_op, s1_found, s1_index};
 

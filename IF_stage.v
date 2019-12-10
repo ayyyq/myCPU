@@ -22,7 +22,18 @@ module if_stage(
     input         inst_sram_dataok,                       
     //exception
     input         ws_cancel      ,
-    input  [31:0] new_pc
+    input  [31:0] new_pc         ,
+    //TLB
+    output [18:0] s0_vpn2        ,
+    output        s0_odd_page    ,
+    output [ 7:0] s0_asid        ,
+    input         s0_found       ,
+    input  [ 3:0] s0_index       ,
+    input  [19:0] s0_pfn         ,
+    input  [ 2:0] s0_c           ,
+    input         s0_d           ,
+    input         s0_v           ,
+    input  [ 7:0] entryhi_asid
 );
 
 reg         fs_valid;
@@ -99,6 +110,11 @@ always @(posedge clk)begin
         buf_npc <=  nextpc;
 end
 
+//TLB
+assign s0_vpn2 = true_npc[31:13];
+assign s0_odd_page = true_npc[12];
+assign s0_asid = entryhi_asid;
+
 // IF stage
 reg fs_ready_go_r;
 always @(posedge clk) begin
@@ -160,7 +176,7 @@ assign fs_badvaddr = fs_pc;
 assign inst_sram_req   = to_fs_valid && fs_allowin; //en
 assign inst_sram_wr    = 1'h0; //wen
 assign inst_sram_size  = 2'd2;
-assign inst_sram_addr  = true_npc;
+assign inst_sram_addr  = (true_npc[31] && !true_npc[30]) ? true_npc : {s0_pfn, true_npc[11:0]};
 assign inst_sram_wstrb = 4'h0; //wen
 assign inst_sram_wdata = 32'd0;
 

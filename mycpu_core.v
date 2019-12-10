@@ -57,10 +57,21 @@ wire ms_cancel;
 wire ws_cancel;
 wire [31:0] new_pc;
 
-wire [26:0] cp0_entryhi_bus;
+wire [18:0] entryhi_vpn2;
+wire [ 7:0] entryhi_asid;
 wire [ 5:0] tlbp_bus;
 
 //TLB
+wire [18:0] s0_vpn2;
+wire        s0_odd_page;
+wire [ 7:0] s0_asid;
+wire        s0_found;
+wire [ 3:0] s0_index;
+wire [19:0] s0_pfn;
+wire [ 2:0] s0_c;
+wire        s0_d;
+wire        s0_v;
+
 wire [18:0] s1_vpn2;
 wire        s1_odd_page;
 wire [ 7:0] s1_asid;
@@ -121,7 +132,18 @@ if_stage if_stage(
     .inst_sram_dataok(inst_sram_dataok),
     //exception
     .ws_cancel       (ws_cancel       ),
-    .new_pc          (new_pc          )
+    .new_pc          (new_pc          ),
+    //TLB
+    .s0_vpn2         (s0_vpn2         ),
+    .s0_odd_page     (s0_odd_page     ),
+    .s0_asid         (s0_asid         ),
+    .s0_found        (s0_found        ),
+    .s0_index        (s0_index        ),
+    .s0_pfn          (s0_pfn          ),
+    .s0_c            (s0_c            ),
+    .s0_d            (s0_d            ),
+    .s0_v            (s0_v            ),
+    .entryhi_asid    (entryhi_asid    )
 );
 // ID stage
 id_stage id_stage(
@@ -179,17 +201,18 @@ exe_stage exe_stage(
     .ms_cancel       (ms_cancel       ),
     .ws_cancel       (ws_cancel       ),
     //TLB
-    .s1_vpn2     (s1_vpn2),
-    .s1_odd_page (s1_odd_page),
-    .s1_asid     (s1_asid),
-    .s1_found    (s1_found),
-    .s1_index    (s1_index),
-    .s1_pfn      (s1_pfn),
-    .s1_c        (s1_c),
-    .s1_d        (s1_d),
-    .s1_v        (s1_v),
-    .cp0_entryhi_bus (cp0_entryhi_bus),
-    .tlbp_bus        (tlbp_bus)
+    .s1_vpn2         (s1_vpn2         ),
+    .s1_odd_page     (s1_odd_page     ),
+    .s1_asid         (s1_asid         ),
+    .s1_found        (s1_found        ),
+    .s1_index        (s1_index        ),
+    .s1_pfn          (s1_pfn          ),
+    .s1_c            (s1_c            ),
+    .s1_d            (s1_d            ),
+    .s1_v            (s1_v            ),
+    .entryhi_vpn2    (entryhi_vpn2    ),
+    .entryhi_asid    (entryhi_asid    ),
+    .tlbp_bus        (tlbp_bus        )
 );
 // MEM stage
 mem_stage mem_stage(
@@ -239,8 +262,9 @@ wb_stage wb_stage(
     .ws_cancel        (ws_cancel        ),
     .new_pc           (new_pc           ),
     //TLB
-    .cp0_entryhi_bus (cp0_entryhi_bus),
-    .tlbp_bus        (tlbp_bus),
+    .entryhi_vpn2    (entryhi_vpn2      ),
+    .entryhi_asid    (entryhi_asid      ),
+    .tlbp_bus        (tlbp_bus          ),
     
     .we          (we     ),
     .w_index     (w_index),
@@ -274,15 +298,15 @@ wb_stage wb_stage(
 tlb u_tlb(
     .clk (clk),
     //search port 0
-    .s0_vpn2     (),
-    .s0_odd_page (),
-    .s0_asid     (),
-    .s0_found    (),
-    .s0_index    (),
-    .s0_pfn      (),
-    .s0_c        (),
-    .s0_d        (),
-    .s0_v        (),
+    .s0_vpn2     (s0_vpn2),
+    .s0_odd_page (s0_odd_page),
+    .s0_asid     (s0_asid),
+    .s0_found    (s0_found),
+    .s0_index    (s0_index),
+    .s0_pfn      (s0_pfn),
+    .s0_c        (s0_c),
+    .s0_d        (s0_d),
+    .s0_v        (s0_v),
     //search prot 1
     .s1_vpn2     (s1_vpn2),
     .s1_odd_page (s1_odd_page),
