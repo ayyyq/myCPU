@@ -186,7 +186,7 @@ assign fs_bd = br_op;
 assign fs_badvaddr = fs_pc;
 
 //当IF级allowin时，preIF级才发req
-assign inst_sram_req   = to_fs_valid && fs_allowin; //en
+assign inst_sram_req   = to_fs_valid && fs_allowin && !ex_tlb_refill && !ex_tlb_invalid; //en
 assign inst_sram_wr    = 1'h0; //wen
 assign inst_sram_size  = 2'd2;
 assign inst_sram_addr  = unmapped ? true_npc : {s0_pfn, true_npc[11:0]};

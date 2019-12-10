@@ -180,6 +180,14 @@ wire        es_load_op;
 wire        es_store_op;
 wire        es_mem_inst;
 
+wire ex_int;
+wire ex_adel;
+wire ex_ades;
+wire ex_ov;
+wire ex_tlb_refill;
+wire ex_tlb_invalid;
+wire ex_tlb_modified;
+
 assign es_res_from_cp0 = es_mfc0_op;
 assign es_res_from_mem = es_lb_op | es_lbu_op | es_lh_op | es_lhu_op | es_lw_op | es_lwl_op | es_lwr_op;
 assign es_to_ms_bus = {es_tlb_refill  ,  //163:163
@@ -329,7 +337,7 @@ assign es_load_op = es_res_from_mem;
 assign es_store_op = es_mem_we;
 assign es_mem_inst = es_load_op || es_store_op;
 
-assign data_sram_req  = es_valid && es_mem_inst && es_to_ms_valid && ms_allowin;
+assign data_sram_req  = es_valid && es_mem_inst && es_to_ms_valid && ms_allowin && !ex_tlb_refill && !ex_tlb_invalid && !ex_tlb_modified;
 assign data_sram_wr   = es_store_op ? 1'b1 : 1'b0;
 assign data_sram_size = ( es_lb_op || es_lbu_op || es_sb_op || 
                          (es_lwl_op || es_swl_op) && es_mem_addr_low == 2'b00 || 
@@ -371,13 +379,6 @@ assign data_sram_wdata = es_sb_op  ? {4{es_rt_value[7:0]}} :
 assign es_cp0_wdata = es_rt_value;
 
 //exception
-wire ex_int;
-wire ex_adel;
-wire ex_ades;
-wire ex_ov;
-wire ex_tlb_refill;
-wire ex_tlb_invalid;
-wire ex_tlb_modified;
 assign ex_int = has_int;
 assign ex_adel  = es_lw_op && es_mem_addr_low != 2'b00
                || (es_lh_op || es_lhu_op) && es_mem_addr_low[0] != 1'b0; 
