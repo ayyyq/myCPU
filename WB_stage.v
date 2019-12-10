@@ -248,7 +248,7 @@ end
 
 //CP0 BadVAddr
 always @(posedge clk) begin
-    if (ws_ex && (ws_exccode == `EX_ADEL || ws_exccode == `EX_ADES))
+    if (ws_ex && (ws_exccode == `EX_ADEL || ws_exccode == `EX_ADES || ws_exccode == `EX_TLBL || ws_exccode == `EX_TLBS))
         cp0_badvaddr <= ws_badvaddr;
 end
 
@@ -392,7 +392,7 @@ assign cp0_entrylo1 = {6'b0,
 reg [18:0] cp0_entryhi_vpn2;
 always @(posedge clk) begin
     if (ws_ex && (ws_exccode == `EX_MOD || ws_exccode == `EX_TLBL || ws_exccode == `EX_TLBS))
-        cp0_entryhi_vpn2 <= ws_pc[31:13];
+        cp0_entryhi_vpn2 <= ws_badvaddr[31:13];
     else if (mtc0_we && cp0_addr == `CR_ENTRYHI)
         cp0_entryhi_vpn2 <= cp0_wdata[31:13];
     else if (ws_tlbr_op)

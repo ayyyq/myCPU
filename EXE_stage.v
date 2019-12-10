@@ -221,7 +221,7 @@ assign es_div_block = es_valid && (es_div_op || es_divu_op) && !dout_tvalid;
 wire forward_cancel;
 assign forward_cancel = es_ex || ms_cancel || ws_cancel;
 
-assign es_ready_go    = !es_div_block && (!es_mem_inst || data_sram_addrok);
+assign es_ready_go    = !es_div_block && (!es_mem_inst || data_sram_addrok || ex_tlb_refill || ex_tlb_invalid || ex_tlb_modified);
 assign es_allowin     = !es_valid || es_ready_go && ms_allowin;
 assign es_to_ms_valid =  es_valid && es_ready_go;
 always @(posedge clk) begin
@@ -403,7 +403,7 @@ assign es_exccode = ex_int          ? `EX_INT                            :
                     ex_tlb_invalid  ? (es_load_op ? `EX_TLBL : `EX_TLBS) : 
                     ex_tlb_modified ? `EX_MOD                            :
                                       5'h00                              ;
-assign es_badvaddr = (ds_ex && ds_exccode == `EX_ADEL)? ds_badvaddr : es_alu_result;
+assign es_badvaddr = ds_ex? ds_badvaddr : es_alu_result;
 
 //TLB
 assign s1_vpn2 = es_tlbp_op ? entryhi_vpn2: es_mem_addr[31:13];

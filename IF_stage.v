@@ -121,6 +121,10 @@ assign s0_odd_page = true_npc[12];
 assign s0_asid = entryhi_asid;
 
 // IF stage
+wire ex_adel;
+reg  ex_tlb_refill;
+reg  ex_tlb_invalid;
+
 reg fs_ready_go_r;
 always @(posedge clk) begin
     if (reset)
@@ -130,7 +134,7 @@ always @(posedge clk) begin
     else if (ds_allowin)
         fs_ready_go_r <= 1'b0;
 end
-assign fs_ready_go    = inst_sram_dataok || fs_ready_go_r; //表示IF级拿到指令可以传递到ID级了
+assign fs_ready_go    = inst_sram_dataok || fs_ready_go_r || ex_tlb_refill || ex_tlb_invalid; //表示IF级拿到指令可以传递到ID级了
 assign fs_allowin     = !fs_valid || fs_ready_go && ds_allowin;
 assign fs_to_ds_valid =  fs_valid && fs_ready_go;
 always @(posedge clk) begin
@@ -169,12 +173,19 @@ always @(posedge clk) begin
 end
 
 //exception
-wire ex_adel;
-wire ex_tlb_refill;
-wire ex_tlb_invalid;
 assign ex_adel = fs_pc[1:0] != 2'b00;
-assign ex_tlb_refill = !unmapped && !s0_found;
-assign ex_tlb_invalid = !unmapped && s0_found && !s0_v;
+always @(posedge clk) begin
+    if (reset)
+        ex_tlb_refill <= 1'b0;
+    else if (to_fs_valid && fs_allowin)
+        ex_tlb_refill <= !unmapped && !s0_found;
+end
+always @(posedge clk) begin
+    if (reset)
+        ex_tlb_invalid <= 1'b0;
+    else if (to_fs_valid && fs_allowin)
+        ex_tlb_invalid <= !unmapped && s0_found && !s0_v;
+end
 
 assign fs_tlb_refill = fs_exccode == `EX_TLBL && ex_tlb_refill;
 assign fs_ex = fs_valid && (ex_adel | ex_tlb_refill | ex_tlb_invalid);
@@ -186,7 +197,7 @@ assign fs_bd = br_op;
 assign fs_badvaddr = fs_pc;
 
 //当IF级allowin时，preIF级才发req
-assign inst_sram_req   = to_fs_valid && fs_allowin && !ex_tlb_refill && !ex_tlb_invalid; //en
+assign inst_sram_req   = to_fs_valid && fs_allowin && (unmapped || s0_found && s0_v); //en
 assign inst_sram_wr    = 1'h0; //wen
 assign inst_sram_size  = 2'd2;
 assign inst_sram_addr  = unmapped ? true_npc : {s0_pfn, true_npc[11:0]};

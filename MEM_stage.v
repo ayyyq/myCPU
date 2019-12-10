@@ -110,7 +110,7 @@ always @(posedge clk) begin
         ms_ready_go_r <= 1'b0;
 end
 assign ms_load_op     = ms_res_from_mem;
-assign ms_ready_go    = !ms_load_op || data_sram_dataok || ms_ready_go_r;
+assign ms_ready_go    = !ms_load_op || data_sram_dataok || ms_ready_go_r || ms_exccode == `EX_TLBL || ms_exccode == `EX_TLBS;
 assign ms_allowin     = !ms_valid || ms_ready_go && ws_allowin;
 assign ms_to_ws_valid = ms_valid && ms_ready_go;
 always @(posedge clk) begin
