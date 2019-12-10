@@ -430,7 +430,6 @@ assign new_pc = (ws_tlbwi_op || ws_tlbr_op ) ? ws_pc + 3'h4 :
                                                32'hbfc00380;
 
 //interrupt
-assign ext_int_in = 6'h00;
 assign has_int = (cp0_cause_ip & cp0_status_im) != 8'h00 && cp0_status_ie == 1'b1 && cp0_status_exl == 1'b0;
 
 //TLB
