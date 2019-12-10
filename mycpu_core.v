@@ -239,20 +239,20 @@ mem_stage mem_stage(
 );
 // WB stage
 wb_stage wb_stage(
-    .clk            (clk            ),
-    .reset          (reset          ),
-    .ext_int_in     (ext_int_in     ),
+    .clk              (clk              ),
+    .reset            (reset            ),
+    .ext_int_in       (ext_int_in       ),
     //allowin
-    .ws_allowin     (ws_allowin     ),
+    .ws_allowin       (ws_allowin       ),
     //from ms
-    .ms_to_ws_valid (ms_to_ws_valid ),
-    .ms_to_ws_bus   (ms_to_ws_bus   ),
+    .ms_to_ws_valid   (ms_to_ws_valid   ),
+    .ms_to_ws_bus     (ms_to_ws_bus     ),
     //to rf: for write back
-    .ws_to_rf_bus   (ws_to_rf_bus   ),
+    .ws_to_rf_bus     (ws_to_rf_bus     ),
     //to ds
-    .ws_valid       (ws_valid       ),
+    .ws_valid         (ws_valid         ),
     //to es
-    .has_int        (has_int        ),
+    .has_int          (has_int          ),
     //trace debug interface
     .debug_wb_pc      (debug_wb_pc      ),
     .debug_wb_rf_wen  (debug_wb_rf_wen  ),
@@ -262,9 +262,9 @@ wb_stage wb_stage(
     .ws_cancel        (ws_cancel        ),
     .new_pc           (new_pc           ),
     //TLB
-    .entryhi_vpn2    (entryhi_vpn2      ),
-    .entryhi_asid    (entryhi_asid      ),
-    .tlbp_bus        (tlbp_bus          ),
+    .entryhi_vpn2     (entryhi_vpn2     ),
+    .entryhi_asid     (entryhi_asid     ),
+    .tlbp_bus         (tlbp_bus         ),
     
     .we          (we     ),
     .w_index     (w_index),
@@ -296,7 +296,7 @@ wb_stage wb_stage(
 
 //TLB
 tlb u_tlb(
-    .clk (clk),
+    .clk         (clk),
     //search port 0
     .s0_vpn2     (s0_vpn2),
     .s0_odd_page (s0_odd_page),

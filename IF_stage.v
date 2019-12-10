@@ -33,6 +33,7 @@ module if_stage(
     input  [ 2:0] s0_c           ,
     input         s0_d           ,
     input         s0_v           ,
+    
     input  [ 7:0] entryhi_asid
 );
 
@@ -82,7 +83,7 @@ wire        fs_bd;
 wire [31:0] fs_badvaddr;
 wire [31:0] fs_inst;
 reg  [31:0] fs_pc;
-assign fs_to_ds_bus = {fs_tlb_refill ,  //103:103
+assign fs_to_ds_bus = {fs_tlb_refill,  //103:103
                        fs_ex        ,  //102:102
                        fs_exccode   ,  //101:97
                        fs_bd        ,  //96:96
@@ -91,8 +92,10 @@ assign fs_to_ds_bus = {fs_tlb_refill ,  //103:103
                        fs_pc           //31:0
                       };
 
+wire unmapped;
+
 // pre-IF stage
-assign to_fs_valid  = ~reset && inst_sram_addrok; //表示有数据需要在下一拍传给IF级
+assign to_fs_valid  = ~reset && (inst_sram_addrok || !unmapped && (!s0_found || !s0_v)); //表示有数据需要在下一拍传给IF级
 assign seq_pc       = fs_pc + 3'h4;
 assign nextpc       = br_taken ? br_target : seq_pc; 
 
@@ -113,7 +116,6 @@ always @(posedge clk)begin
 end
 
 //TLB
-wire unmapped;
 assign unmapped = true_npc[31] && !true_npc[30];
 
 assign s0_vpn2 = true_npc[31:13];
@@ -134,7 +136,7 @@ always @(posedge clk) begin
     else if (ds_allowin)
         fs_ready_go_r <= 1'b0;
 end
-assign fs_ready_go    = inst_sram_dataok || fs_ready_go_r || ex_tlb_refill || ex_tlb_invalid; //表示IF级拿到指令可以传递到ID级了
+assign fs_ready_go    = inst_sram_dataok || fs_ready_go_r || fs_exccode == `EX_TLBL; //表示IF级拿到指令可以传递到ID级了
 assign fs_allowin     = !fs_valid || fs_ready_go && ds_allowin;
 assign fs_to_ds_valid =  fs_valid && fs_ready_go;
 always @(posedge clk) begin

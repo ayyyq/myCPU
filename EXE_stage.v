@@ -46,7 +46,7 @@ module exe_stage(
 wire        es_ready_go   ;
 
 reg  [`DS_TO_ES_BUS_WD -1:0] ds_to_es_bus_r;
-wire        ds_tlb_refill    ;
+wire        ds_tlb_refill ;
 wire        es_tlbp_op    ;
 wire        es_tlbwi_op   ;
 wire        es_tlbr_op    ;
@@ -180,14 +180,6 @@ wire        es_load_op;
 wire        es_store_op;
 wire        es_mem_inst;
 
-wire ex_int;
-wire ex_adel;
-wire ex_ades;
-wire ex_ov;
-wire ex_tlb_refill;
-wire ex_tlb_invalid;
-wire ex_tlb_modified;
-
 assign es_res_from_cp0 = es_mfc0_op;
 assign es_res_from_mem = es_lb_op | es_lbu_op | es_lh_op | es_lhu_op | es_lw_op | es_lwl_op | es_lwr_op;
 assign es_to_ms_bus = {es_tlb_refill  ,  //163:163
@@ -220,6 +212,14 @@ wire es_div_block;
 assign es_div_block = es_valid && (es_div_op || es_divu_op) && !dout_tvalid;
 wire forward_cancel;
 assign forward_cancel = es_ex || ms_cancel || ws_cancel;
+
+wire ex_int;
+wire ex_adel;
+wire ex_ades;
+wire ex_ov;
+wire ex_tlb_refill;
+wire ex_tlb_invalid;
+wire ex_tlb_modified;
 
 assign es_ready_go    = !es_div_block && (!es_mem_inst || data_sram_addrok || ex_tlb_refill || ex_tlb_invalid || ex_tlb_modified);
 assign es_allowin     = !es_valid || es_ready_go && ms_allowin;
