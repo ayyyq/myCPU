@@ -392,7 +392,6 @@ always @(posedge clk) begin
         cp0_entryhi_vpn2 <= cp0_wdata[31:13];
     else if (ws_tlbr_op)
         cp0_entryhi_vpn2 <= r_vpn2;
-    //TLB exception
 end
 reg [7:0] cp0_entryhi_asid;
 always @(posedge clk) begin
