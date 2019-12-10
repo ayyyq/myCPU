@@ -434,7 +434,7 @@ assign ext_int_in = 6'h00;
 assign has_int = (cp0_cause_ip & cp0_status_im) != 8'h00 && cp0_status_ie == 1'b1 && cp0_status_exl == 1'b0;
 
 //TLB
-assign we      = ws_valid && ws_tlbwi_op;
+assign we      = ws_tlbwi_op;
 assign w_index = cp0_index_index;
 assign w_vpn2  = cp0_entryhi_vpn2;
 assign w_asid  = cp0_entryhi_asid;
