@@ -26,6 +26,7 @@ module mem_stage(
 wire        ms_ready_go;
 
 reg [`ES_TO_MS_BUS_WD -1:0] es_to_ms_bus_r;
+wire        ms_tlb_refill;
 wire        ms_tlbwi_op;
 wire        ms_tlbr_op;
 wire        es_ex;
@@ -49,7 +50,8 @@ wire        ms_gr_we;
 wire [ 4:0] ms_dest;
 wire [31:0] ms_alu_result;
 wire [31:0] ms_pc;
-assign {ms_tlbwi_op    ,  //162:162
+assign {ms_tlb_refill  ,  //163:163
+        ms_tlbwi_op    ,  //162:162
         ms_tlbr_op     ,  //161:161
         es_ex          ,  //160:160
         es_exccode     ,  //159:155
@@ -80,7 +82,8 @@ wire [ 3:0] ms_rf_we;
 wire [31:0] mem_result;
 wire [31:0] ms_final_result;
 
-assign ms_to_ws_bus = {ms_tlbwi_op    ,  //156:156
+assign ms_to_ws_bus = {ms_tlb_refill  ,  //157:157
+                       ms_tlbwi_op    ,  //156:156
                        ms_tlbr_op     ,  //155:155
                        ms_ex          ,  //154:154
                        ms_exccode     ,  //153:149

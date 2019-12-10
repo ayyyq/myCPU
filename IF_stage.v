@@ -75,18 +75,20 @@ always @(posedge clk) begin
         br_bus_r <= br_bus;
 end
 
+wire        fs_tlb_refill;
 wire        fs_ex;
 wire [ 4:0] fs_exccode;
 wire        fs_bd;
 wire [31:0] fs_badvaddr;
 wire [31:0] fs_inst;
 reg  [31:0] fs_pc;
-assign fs_to_ds_bus = {fs_ex      ,  //102:102
-                       fs_exccode ,  //101:97
-                       fs_bd      ,  //96:96
-                       fs_badvaddr,  //95:64
-                       fs_inst    ,  //63:32
-                       fs_pc         //31:0
+assign fs_to_ds_bus = {fs_tlb_refill ,  //103:103
+                       fs_ex        ,  //102:102
+                       fs_exccode   ,  //101:97
+                       fs_bd        ,  //96:96
+                       fs_badvaddr  ,  //95:64
+                       fs_inst      ,  //63:32
+                       fs_pc           //31:0
                       };
 
 // pre-IF stage
@@ -168,10 +170,18 @@ end
 
 //exception
 wire ex_adel;
+wire ex_tlb_refill;
+wire ex_tlb_invalid;
 assign ex_adel = fs_pc[1:0] != 2'b00;
+assign ex_tlb_refill = !unmapped && !s0_found;
+assign ex_tlb_invalid = !unmapped && s0_found && !s0_v;
 
-assign fs_ex = fs_valid && ex_adel;
-assign fs_exccode = ex_adel ? `EX_ADEL : 5'h00;
+assign fs_tlb_refill = fs_exccode == `EX_TLBL && ex_tlb_refill;
+assign fs_ex = fs_valid && (ex_adel | ex_tlb_refill | ex_tlb_invalid);
+assign fs_exccode = ex_adel ?        `EX_ADEL : 
+                    ex_tlb_refill  ? `EX_TLBL : 
+                    ex_tlb_invalid ? `EX_TLBL : 
+                                     5'h00;
 assign fs_bd = br_op;
 assign fs_badvaddr = fs_pc;
 

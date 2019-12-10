@@ -60,6 +60,7 @@ module wb_stage(
 wire        ws_ready_go;
 
 reg [`MS_TO_WS_BUS_WD -1:0] ms_to_ws_bus_r;
+wire        ws_tlb_refill;
 wire        ms_tlbwi_op;
 wire        ms_tlbr_op;
 wire        ms_ex;
@@ -75,7 +76,8 @@ wire [ 3:0] ws_rf_we;
 wire [ 4:0] ws_dest;
 wire [31:0] ms_final_result;
 wire [31:0] ws_pc;
-assign {ms_tlbwi_op    ,  //156:156
+assign {ws_tlb_refill  ,  //157:157
+        ms_tlbwi_op    ,  //156:156
         ms_tlbr_op     ,  //155:155
         ms_ex          ,  //154:154
         ms_exccode     ,  //153:149
@@ -389,7 +391,9 @@ assign cp0_entrylo1 = {6'b0,
 //CP0 EntryHi
 reg [18:0] cp0_entryhi_vpn2;
 always @(posedge clk) begin
-    if (mtc0_we && cp0_addr == `CR_ENTRYHI)
+    if (ws_ex && (ws_exccode == `EX_MOD || ws_exccode == `EX_TLBL || ws_exccode == `EX_TLBS))
+        cp0_entryhi_vpn2 <= ws_pc[31:13];
+    else if (mtc0_we && cp0_addr == `CR_ENTRYHI)
         cp0_entryhi_vpn2 <= cp0_wdata[31:13];
     else if (ws_tlbr_op)
         cp0_entryhi_vpn2 <= r_vpn2;
@@ -428,6 +432,7 @@ assign ws_tlbr_op = ws_valid && ms_tlbr_op;
 assign ws_cancel = ws_ex || eret_flush || ws_tlbwi_op || ws_tlbr_op;
 assign new_pc = (ws_tlbwi_op || ws_tlbr_op ) ? ws_pc + 3'h4 : 
                 eret_flush                   ? cp0_epc : 
+                ws_tlb_refill                ? 32'hbfc00200 : 
                                                32'hbfc00380;
 
 //interrupt

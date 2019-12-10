@@ -2,10 +2,10 @@
     `define MYCPU_H
 
     `define BR_BUS_WD       35 //bus 5
-    `define FS_TO_DS_BUS_WD 103
-    `define DS_TO_ES_BUS_WD 210
-    `define ES_TO_MS_BUS_WD 163
-    `define MS_TO_WS_BUS_WD 157
+    `define FS_TO_DS_BUS_WD 104
+    `define DS_TO_ES_BUS_WD 211
+    `define ES_TO_MS_BUS_WD 164
+    `define MS_TO_WS_BUS_WD 158
     `define WS_TO_RF_BUS_WD 41
     
     `define CR_INDEX    {5'd0, 3'd0}

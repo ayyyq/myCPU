@@ -46,6 +46,7 @@ module exe_stage(
 wire        es_ready_go   ;
 
 reg  [`DS_TO_ES_BUS_WD -1:0] ds_to_es_bus_r;
+wire        ds_tlb_refill    ;
 wire        es_tlbp_op    ;
 wire        es_tlbwi_op   ;
 wire        es_tlbr_op    ;
@@ -91,7 +92,8 @@ wire [15:0] es_imm        ;
 wire [31:0] es_rs_value   ;
 wire [31:0] es_rt_value   ;
 wire [31:0] es_pc         ;
-assign {es_tlbp_op     ,  //209:209
+assign {ds_tlb_refill  ,  //210:210
+        es_tlbp_op     ,  //209:209
         es_tlbwi_op    ,  //208:208
         es_tlbr_op     ,  //207:207
         ds_ex          ,  //206:206
@@ -164,6 +166,7 @@ reg  [31:0] lo;
 wire [31:0] hi_rdata;
 wire [31:0] lo_rdata;
 
+wire        es_tlb_refill;
 wire        es_ex;
 wire [ 4:0] es_exccode;
 wire [31:0] es_badvaddr;
@@ -179,7 +182,8 @@ wire        es_mem_inst;
 
 assign es_res_from_cp0 = es_mfc0_op;
 assign es_res_from_mem = es_lb_op | es_lbu_op | es_lh_op | es_lhu_op | es_lw_op | es_lwl_op | es_lwr_op;
-assign es_to_ms_bus = {es_tlbwi_op    ,  //162:162
+assign es_to_ms_bus = {es_tlb_refill  ,  //163:163
+                       es_tlbwi_op    ,  //162:162
                        es_tlbr_op     ,  //161:161
                        es_ex          ,  //160:160
                        es_exccode     ,  //159:155
@@ -371,6 +375,9 @@ wire ex_int;
 wire ex_adel;
 wire ex_ades;
 wire ex_ov;
+wire ex_tlb_refill;
+wire ex_tlb_invalid;
+wire ex_tlb_modified;
 assign ex_int = has_int;
 assign ex_adel  = es_lw_op && es_mem_addr_low != 2'b00
                || (es_lh_op || es_lhu_op) && es_mem_addr_low[0] != 1'b0; 
@@ -380,13 +387,21 @@ assign ex_ov = es_ov_op &&
               (es_alu_op[0] && (es_alu_src1[31] & es_alu_src2[31] & ~aluout[31] | ~es_alu_src1[31] & ~es_alu_src2[31] & aluout[31]) ||  
                es_alu_op[1] && (es_alu_src1[31] & ~es_alu_src2[31] & ~aluout[31] | ~es_alu_src1[31] & es_alu_src2[31] & aluout[31])
               );
-assign es_ex = es_valid && (ex_int | ds_ex | ex_ov | ex_adel | ex_ades);
-assign es_exccode = ex_int  ? `EX_INT   : 
-                    ds_ex   ? ds_exccode: 
-                    ex_ov   ? `EX_OV    : 
-                    ex_adel ? `EX_ADEL  : 
-                    ex_ades ? `EX_ADES  : 
-                              5'h00     ;
+assign ex_tlb_refill   = es_mem_inst && !unmapped && !s1_found;
+assign ex_tlb_invalid  = es_mem_inst && !unmapped &&  s1_found && !s1_v;
+assign ex_tlb_modified = es_store_op && !unmapped &&  s1_found &&  s1_v && !s1_d;
+
+assign es_tlb_refill = ds_tlb_refill | ((es_exccode == `EX_TLBL || es_exccode == `EX_TLBS) && ex_tlb_refill);
+assign es_ex = es_valid && (ex_int | ds_ex | ex_ov | ex_adel | ex_ades | ex_tlb_refill | ex_tlb_invalid | ex_tlb_modified);
+assign es_exccode = ex_int          ? `EX_INT                            : 
+                    ds_ex           ? ds_exccode                         : 
+                    ex_ov           ? `EX_OV                             : 
+                    ex_adel         ? `EX_ADEL                           : 
+                    ex_ades         ? `EX_ADES                           : 
+                    ex_tlb_refill   ? (es_load_op ? `EX_TLBL : `EX_TLBS) : 
+                    ex_tlb_invalid  ? (es_load_op ? `EX_TLBL : `EX_TLBS) : 
+                    ex_tlb_modified ? `EX_MOD                            :
+                                      5'h00                              ;
 assign es_badvaddr = (ds_ex && ds_exccode == `EX_ADEL)? ds_badvaddr : es_alu_result;
 
 //TLB

@@ -34,18 +34,20 @@ wire [31                 :0] fs_pc;
 reg  [`FS_TO_DS_BUS_WD -1:0] fs_to_ds_bus_r;
 assign fs_pc = fs_to_ds_bus[31:0];
 
+wire        ds_tlb_refill;
 wire        fs_ex;
 wire [ 4:0] fs_exccode;
 wire        ds_bd;
 wire [31:0] ds_badvaddr;
 wire [31:0] ds_inst;
 wire [31:0] ds_pc  ;
-assign {fs_ex      ,  //102:102
-        fs_exccode ,  //101:97
-        ds_bd      ,  //96:96
-        ds_badvaddr,  //95:64
-        ds_inst    ,  //63:32
-        ds_pc         //31:0      
+assign {ds_tlb_refill,  //103:103
+        fs_ex        ,  //102:102
+        fs_exccode   ,  //101:97
+        ds_bd        ,  //96:96
+        ds_badvaddr  ,  //95:64
+        ds_inst      ,  //63:32
+        ds_pc           //31:0      
        } = fs_to_ds_bus_r;
 
 wire [ 3:0] rf_we   ;
@@ -205,51 +207,52 @@ wire        rs_lt_zero;
 
 assign br_bus       = {br_op, br_stall, br_taken, br_target};
 
-assign ds_to_es_bus = {tlbp_op     ,  //209:209
-                       tlbwi_op    ,  //208:208
-                       tlbr_op     ,  //207:207
-                       ds_ex       ,  //206:206
-                       ds_exccode  ,  //205:201
-                       ds_bd       ,  //200:200
-                       ds_badvaddr ,  //199:168
-                       ov_op       ,  //167:167
-                       eret_op     ,  //166:166
-                       mfc0_op     ,  //165:165
-                       mtc0_op     ,  //164:164
-                       cp0_addr    ,  //163:156
-                       alu_op      ,  //155:144
-                       lb_op       ,  //143:143
-                       lbu_op      ,  //142:142
-                       lh_op       ,  //141:141
-                       lhu_op      ,  //140:140
-                       lw_op       ,  //139:139
-                       lwl_op      ,  //138:138
-                       lwr_op      ,  //137:137
-                       sb_op       ,  //136:136
-                       sh_op       ,  //135:135
-                       sw_op       ,  //134:134
-                       swl_op      ,  //133:133
-                       swr_op      ,  //132:132
-                       mul_op      ,  //131:131
-                       mulu_op     ,  //130:130
-                       div_op      ,  //129:129
-                       divu_op     ,  //128:128
-                       src1_is_sa  ,  //127:127
-                       src1_is_pc  ,  //126:126
+assign ds_to_es_bus = {ds_tlb_refill,  //210:210
+                       tlbp_op      ,  //209:209
+                       tlbwi_op     ,  //208:208
+                       tlbr_op      ,  //207:207
+                       ds_ex        ,  //206:206
+                       ds_exccode   ,  //205:201
+                       ds_bd        ,  //200:200
+                       ds_badvaddr  ,  //199:168
+                       ov_op        ,  //167:167
+                       eret_op      ,  //166:166
+                       mfc0_op      ,  //165:165
+                       mtc0_op      ,  //164:164
+                       cp0_addr     ,  //163:156
+                       alu_op       ,  //155:144
+                       lb_op        ,  //143:143
+                       lbu_op       ,  //142:142
+                       lh_op        ,  //141:141
+                       lhu_op       ,  //140:140
+                       lw_op        ,  //139:139
+                       lwl_op       ,  //138:138
+                       lwr_op       ,  //137:137
+                       sb_op        ,  //136:136
+                       sh_op        ,  //135:135
+                       sw_op        ,  //134:134
+                       swl_op       ,  //133:133
+                       swr_op       ,  //132:132
+                       mul_op       ,  //131:131
+                       mulu_op      ,  //130:130
+                       div_op       ,  //129:129
+                       divu_op      ,  //128:128
+                       src1_is_sa   ,  //127:127
+                       src1_is_pc   ,  //126:126
                        src2_is_signed_imm ,  //125:125
                        src2_is_zero_imm,  //124:124
-                       src2_is_8   ,  //123:123
-                       gr_we       ,  //122:122
-                       mem_we      ,  //121:121
-                       hi_re       ,  //120:120
-                       lo_re       ,  //119:119
-                       hi_we       ,  //118:118
-                       lo_we       ,  //117:117
-                       dest        ,  //116:112
-                       imm         ,  //111:96
-                       rs_value    ,  //95 :64
-                       rt_value    ,  //63 :32
-                       ds_pc          //31 :0
+                       src2_is_8    ,  //123:123
+                       gr_we        ,  //122:122
+                       mem_we       ,  //121:121
+                       hi_re        ,  //120:120
+                       lo_re        ,  //119:119
+                       hi_we        ,  //118:118
+                       lo_we        ,  //117:117
+                       dest         ,  //116:112
+                       imm          ,  //111:96
+                       rs_value     ,  //95 :64
+                       rt_value     ,  //63 :32
+                       ds_pc           //31 :0
                       };
 
 //exe_stage
