@@ -172,6 +172,7 @@ wire        es_res_from_cp0;
 wire        es_res_from_mem;
 wire [ 1:0] es_mem_addr_low;
 wire [31:0] es_mem_addr;
+wire        unmapped;
 wire        es_load_op;
 wire        es_store_op;
 wire        es_mem_inst;
@@ -319,6 +320,7 @@ assign es_alu_result = es_hi_re ? hi_rdata :
 
 assign es_mem_addr_low = es_alu_result[1:0];
 assign es_mem_addr = (es_lwl_op || es_swl_op) ? {es_alu_result[31:2], 2'b00} : es_alu_result;
+assign unmapped = es_mem_addr[31] && !es_mem_addr[30];
 assign es_load_op = es_res_from_mem;
 assign es_store_op = es_mem_we;
 assign es_mem_inst = es_load_op || es_store_op;
@@ -349,7 +351,7 @@ assign data_sram_wstrb = (!es_valid || forward_cancel) ? 4'b0000 :
                                                                               4'b1111 : 
                                                  4'b1111 : 
                                      4'b0000 ;
-assign data_sram_addr  = (es_mem_addr[31] && !es_mem_addr[30]) ? es_mem_addr : {s1_pfn, es_mem_addr[11:0]};
+assign data_sram_addr  = unmapped ? es_mem_addr : {s1_pfn, es_mem_addr[11:0]};
 assign data_sram_wdata = es_sb_op  ? {4{es_rt_value[7:0]}} : 
                          es_sh_op  ? {2{es_rt_value[15:0]}} : 
                          es_swl_op ? (es_mem_addr_low == 2'b00) ? es_rt_value[31:24] : 

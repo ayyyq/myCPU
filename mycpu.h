@@ -20,6 +20,9 @@
     `define CR_EPC      {5'd14, 3'd0}
     
     `define EX_INT 5'h00
+    `define EX_MOD 5'h01
+    `define EX_TLBL 5'h02
+    `define EX_TLBS 5'h03
     `define EX_ADEL 5'h04
     `define EX_ADES 5'h05
     `define EX_OV 5'h0c
