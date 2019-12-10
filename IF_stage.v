@@ -95,7 +95,7 @@ assign fs_to_ds_bus = {fs_tlb_refill,  //103:103
 wire unmapped;
 
 // pre-IF stage
-assign to_fs_valid  = ~reset && (inst_sram_addrok || !unmapped && (!s0_found || !s0_v)); //表示有数据需要在下一拍传给IF级
+assign to_fs_valid  = ~reset && (inst_sram_addrok);// || !unmapped && (!s0_found || !s0_v)); //表示有数据需要在下一拍传给IF级
 assign seq_pc       = fs_pc + 3'h4;
 assign nextpc       = br_taken ? br_target : seq_pc; 
 
