@@ -85,6 +85,7 @@ reg [ 3:0] rid_r;
 reg [31:0] rdata_r;
 
 reg rdata_ok_r;
+reg rlast_r;
 reg wdata_ok_r;
 
 reg has_waddr;
@@ -142,6 +143,13 @@ always @(posedge clk) begin
         rdata_ok_r <= 1'b1;
     else if (rdata_ok_r)
         rdata_ok_r <= 1'b0; //ÏÂÒ»ÅÄÇå¿Õ
+        
+    if (!resetn)
+        rlast_r <= 1'b0;
+    else if (rlast)
+        rlast_r <= 1'b1;
+    else if (rlast_r)
+        rlast_r <= 1'b0;
     
     if (!resetn)
         wdata_ok_r <= 1'b0;
@@ -152,8 +160,9 @@ always @(posedge clk) begin
 end
 
 //inst sram-like
-assign inst_rdy = !data_req && state == `AXI_IDLE;
+assign inst_rdy   = !data_req && state == `AXI_IDLE;
 assign inst_valid = rid_r == 4'd0 && rdata_ok_r;
+assign inst_last  = rid_r == 4'd0 && rlast_r;
 assign inst_rdata = rdata_r;
 
 //data sram-like

@@ -32,6 +32,17 @@ module mycpu_core(
 reg         reset;
 always @(posedge clk) reset <= ~resetn;
 
+wire        icache_valid;
+wire        icache_op;
+wire [ 7:0] icache_index;
+wire [19:0] icache_tlb_tag;
+wire [ 3:0] icache_offset;
+wire [ 3:0] icache_wstrb;
+wire [31:0] icache_wdata;
+wire        icache_addrok;
+wire        icache_dataok;
+wire [31:0] icache_rdata;
+
 wire         ds_allowin;
 wire         es_allowin;
 wire         ms_allowin;
@@ -119,12 +130,16 @@ if_stage if_stage(
     .fs_to_ds_valid  (fs_to_ds_valid  ),
     .fs_to_ds_bus    (fs_to_ds_bus    ),
     // inst sram interface
-    .inst_sram_req   (inst_sram_req   ),
-    .inst_sram_size  (inst_sram_size  ),
-    .inst_sram_addr  (inst_sram_addr  ),
-    .inst_sram_rdata (inst_sram_rdata ),
-    .inst_sram_addrok(inst_sram_rdy   ),
-    .inst_sram_dataok(inst_sram_valid ),
+    .icache_valid    (icache_valid    ),
+    .icache_op       (icache_op       ),
+    .icache_index    (icache_index    ),
+    .icache_tlb_tag  (icache_tlb_tag  ),
+    .icache_offset   (icache_offset   ),
+    .icache_wstrb    (icache_wstrb    ),
+    .icache_wdata    (icache_wdata    ),
+    .icache_addrok   (icache_addrok   ),
+    .icache_dataok   (icache_dataok   ),
+    .icache_rdata    (icache_rdata    ),
     //exception
     .ws_cancel       (ws_cancel       ),
     .new_pc          (new_pc          ),
@@ -140,6 +155,31 @@ if_stage if_stage(
     .s0_v            (s0_v            ),
     .entryhi_asid    (entryhi_asid    )
 );
+//icache
+cache icache(
+    .clk      (clk),
+    .resetn   (resetn),
+    
+    .valid    (icache_valid),
+    .op       (icache_op),
+    .index    (icache_index),
+    .tlb_tag  (icache_tlb_tag),
+    .offset   (icache_offset),
+    .wstrb    (icache_wstrb),
+    .wdata    (icache_wdata),
+    .addr_ok  (icache_addrok),
+    .data_ok  (icache_dataok),
+    .rdata    (icache_rdata),
+
+    .rd_req   (inst_sram_req),
+    .rd_type  (inst_sram_size),
+    .rd_addr  (inst_sram_addr),
+    .rd_rdy   (inst_sram_rdy),
+    .ret_valid(inst_sram_valid),
+    .ret_last (inst_sram_last),
+    .ret_data (inst_sram_rdata)
+);
+
 // ID stage
 id_stage id_stage(
     .clk            (clk            ),
