@@ -19,7 +19,7 @@ module exe_stage(
     // data sram-like interface
     output        data_sram_req  ,
     output        data_sram_wr   ,
-    output [ 1:0] data_sram_size ,
+    output [ 2:0] data_sram_size ,
     output [31:0] data_sram_addr ,
     output [ 3:0] data_sram_wstrb,
     output [31:0] data_sram_wdata,
@@ -341,11 +341,11 @@ assign data_sram_req  = es_valid && es_mem_inst && es_to_ms_valid && ms_allowin 
 assign data_sram_wr   = es_store_op ? 1'b1 : 1'b0;
 assign data_sram_size = ( es_lb_op || es_lbu_op || es_sb_op || 
                          (es_lwl_op || es_swl_op) && es_mem_addr_low == 2'b00 || 
-                         (es_lwr_op || es_swr_op) && es_mem_addr_low == 2'b11 ) ? 2'd0 : 
+                         (es_lwr_op || es_swr_op) && es_mem_addr_low == 2'b11 ) ? 3'b000 : 
                         ( es_lh_op || es_lhu_op || es_sh_op || 
                          (es_lwl_op || es_swl_op) && es_mem_addr_low == 2'b01 || 
-                         (es_lwr_op || es_swr_op) && es_mem_addr_low == 2'b10 ) ? 2'd1 : 
-                         2'd2;
+                         (es_lwr_op || es_swr_op) && es_mem_addr_low == 2'b10 ) ? 3'b001 : 
+                         3'b010;
 assign data_sram_wstrb = (!es_valid || forward_cancel) ? 4'b0000 : 
                          es_mem_we ? es_sb_op  ? (es_mem_addr_low == 2'b00) ? 4'b0001 : 
                                                  (es_mem_addr_low == 2'b01) ? 4'b0010 : 

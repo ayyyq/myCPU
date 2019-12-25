@@ -13,7 +13,7 @@ module if_stage(
     // inst sram-like interface
     output        inst_sram_req  ,
     output        inst_sram_wr   ,
-    output [ 1:0] inst_sram_size ,
+    output [ 2:0] inst_sram_size ,
     output [31:0] inst_sram_addr ,
     output [ 3:0] inst_sram_wstrb,
     output [31:0] inst_sram_wdata,
@@ -201,7 +201,7 @@ assign fs_badvaddr = fs_pc;
 //当IF级allowin时，preIF级才发req
 assign inst_sram_req   = to_fs_valid && fs_allowin && (unmapped || s0_found && s0_v); //en
 assign inst_sram_wr    = 1'h0; //wen
-assign inst_sram_size  = 2'd2;
+assign inst_sram_size  = 3'b010;
 assign inst_sram_addr  = unmapped ? true_npc : {s0_pfn, true_npc[11:0]};
 assign inst_sram_wstrb = 4'h0; //wen
 assign inst_sram_wdata = 32'd0;
