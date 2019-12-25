@@ -40,7 +40,7 @@ wire [ 4:0] fs_exccode;
 wire        ds_bd;
 wire [31:0] ds_badvaddr;
 wire [31:0] ds_inst;
-wire [31:0] ds_pc  ;
+wire [31:0] ds_pc;
 assign {ds_tlb_refill,  //103:103
         fs_ex        ,  //102:102
         fs_exccode   ,  //101:97
@@ -517,9 +517,11 @@ assign br_taken = (   inst_beq    &&  rs_eq_rt
                    || inst_jr
                    || inst_jalr
                   ) && ds_valid && !br_stall;
-assign br_target = (inst_beq || inst_bne || inst_bgez || inst_bgtz || inst_blez || inst_bltz || inst_bgezal || inst_bltzal) ? (fs_pc + {{14{imm[15]}}, imm[15:0], 2'b0}) :
+wire [31:0] slot_pc;
+assign slot_pc = ds_pc + 3'h4;
+assign br_target = (inst_beq || inst_bne || inst_bgez || inst_bgtz || inst_blez || inst_bltz || inst_bgezal || inst_bltzal) ? (slot_pc + {{14{imm[15]}}, imm[15:0], 2'b0}) :
                    (inst_jr || inst_jalr) ?  rs_value :
-                   /*(inst_jal || inst_j)*/  {fs_pc[31:28], jidx[25:0], 2'b0};
+                   /*(inst_jal || inst_j)*/  {slot_pc[31:28], jidx[25:0], 2'b0};
 
 //exception
 wire ex_sys;
