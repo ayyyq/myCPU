@@ -25,6 +25,7 @@ module tlb #
 )
 (
     input                       clk,
+    input                       reset,
     
     // search port 0
     input  [              18:0] s0_vpn2,
@@ -93,6 +94,16 @@ reg        tlb_v1   [TLBNUM-1:0];
 wire [TLBNUM-1: 0] match0;
 wire [TLBNUM-1: 0] match1;
 genvar i;
+
+//initialize tlb_vpn2
+generate
+    for (i = 0; i < TLBNUM; i = i + 1) begin: init
+        always @(posedge clk) begin
+            if (reset)
+                tlb_vpn2[i] <= 20'h5fe00;
+        end
+    end
+endgenerate
 
 //search port0
 generate
