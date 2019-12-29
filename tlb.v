@@ -100,7 +100,7 @@ generate
     for (i = 0; i < TLBNUM; i = i + 1) begin: init
         always @(posedge clk) begin
             if (reset)
-                tlb_vpn2[i] <= 20'h5fe00;
+                tlb_vpn2[i] <= 19'h5fe00;
         end
     end
 endgenerate
